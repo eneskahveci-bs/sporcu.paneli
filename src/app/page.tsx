@@ -17,7 +17,6 @@ export default function LandingPage() {
           </div>
           <div className="landing-nav-links">
             <a href="#features">Özellikler</a>
-            <a href="#pricing">Fiyatlandırma</a>
             <a href="#contact">İletişim</a>
           </div>
           <div className="landing-nav-actions">
@@ -159,93 +158,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="landing-section landing-section-alt">
-        <div className="landing-section-inner">
-          <div className="section-header">
-            <h2 className="section-title">Şeffaf Fiyatlandırma</h2>
-            <p className="section-subtitle">Akademinizin büyüklüğüne göre en uygun planı seçin</p>
-          </div>
-          <div className="pricing-grid">
-            {[
-              {
-                name: 'Başlangıç',
-                price: 'Ücretsiz',
-                period: '',
-                desc: 'Küçük akademiler için mükemmel',
-                features: [
-                  'En fazla 50 sporcu',
-                  '1 antrenör hesabı',
-                  'Temel raporlar',
-                  'E-posta bildirimleri',
-                  'Sporcu portalı',
-                ],
-                cta: 'Ücretsiz Başla',
-                href: '/register',
-                highlighted: false,
-              },
-              {
-                name: 'Profesyonel',
-                price: '₺499',
-                period: '/ay',
-                desc: 'Büyüyen akademiler için ideal',
-                features: [
-                  'Sınırsız sporcu',
-                  '10 antrenör hesabı',
-                  'Gelişmiş raporlar',
-                  'SMS & WhatsApp bildirimleri',
-                  'PayTR ödeme entegrasyonu',
-                  'Çoklu şube desteği',
-                  'Öncelikli destek',
-                ],
-                cta: 'Hemen Başla',
-                href: '/register',
-                highlighted: true,
-              },
-              {
-                name: 'Kurumsal',
-                price: 'İletişime Geçin',
-                period: '',
-                desc: 'Büyük spor kulüpleri için',
-                features: [
-                  'Her şey dahil',
-                  'Sınırsız antrenör',
-                  'Özel entegrasyonlar',
-                  'API erişimi',
-                  'White-label seçeneği',
-                  '7/24 öncelikli destek',
-                  'Özel onboarding',
-                ],
-                cta: 'İletişime Geçin',
-                href: '#contact',
-                highlighted: false,
-              },
-            ].map((p, i) => (
-              <div key={i} className={`pricing-card ${p.highlighted ? 'pricing-card-highlighted' : ''}`}>
-                {p.highlighted && <div className="pricing-badge">En Popüler</div>}
-                <h3 className="pricing-name">{p.name}</h3>
-                <div className="pricing-price">
-                  <span className="pricing-amount">{p.price}</span>
-                  {p.period && <span className="pricing-period">{p.period}</span>}
-                </div>
-                <p className="pricing-desc">{p.desc}</p>
-                <ul className="pricing-features">
-                  {p.features.map((f, j) => (
-                    <li key={j}>
-                      <span className="pricing-check">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href={p.href} className={`pricing-cta ${p.highlighted ? 'pricing-cta-highlighted' : ''}`}>
-                  {p.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="landing-cta">
         <div className="landing-cta-inner">
@@ -274,8 +186,8 @@ export default function LandingPage() {
             <div className="footer-link-group">
               <h4>Ürün</h4>
               <a href="#features">Özellikler</a>
-              <a href="#pricing">Fiyatlandırma</a>
               <Link href="/register">Kayıt Ol</Link>
+              <Link href="/login">Giriş Yap</Link>
             </div>
             <div className="footer-link-group">
               <h4>Hukuki</h4>
@@ -285,7 +197,9 @@ export default function LandingPage() {
             </div>
             <div className="footer-link-group">
               <h4>İletişim</h4>
-              <a href="mailto:destek@sporcupaneli.com">destek@sporcupaneli.com</a>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Enes Kahveci</span>
+              <a href="mailto:eneskahveci.bs@gmail.com">eneskahveci.bs@gmail.com</a>
+              <a href="tel:+905469775868">+90 546 977 58 68</a>
             </div>
           </div>
         </div>
@@ -364,24 +278,6 @@ export default function LandingPage() {
         .feature-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; }
         .feature-desc { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; }
 
-        /* Pricing */
-        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; align-items: start; }
-        .pricing-card { background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: 1rem; padding: 2rem; position: relative; }
-        .pricing-card-highlighted { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 16px 48px rgba(59,130,246,0.15); }
-        .pricing-badge { position: absolute; top: -0.875rem; left: 50%; transform: translateX(-50%); background: var(--accent); color: #fff; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.875rem; border-radius: 2rem; white-space: nowrap; }
-        .pricing-name { font-size: 1.125rem; font-weight: 700; margin-bottom: 0.75rem; }
-        .pricing-price { display: flex; align-items: baseline; gap: 0.25rem; margin-bottom: 0.5rem; }
-        .pricing-amount { font-size: 2rem; font-weight: 800; }
-        .pricing-period { font-size: 0.9375rem; color: var(--text-muted); }
-        .pricing-desc { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem; }
-        .pricing-features { list-style: none; padding: 0; margin: 0 0 1.5rem; display: flex; flex-direction: column; gap: 0.625rem; }
-        .pricing-features li { display: flex; align-items: center; gap: 0.625rem; font-size: 0.875rem; }
-        .pricing-check { color: #22c55e; font-weight: 700; }
-        .pricing-cta { display: block; text-align: center; padding: 0.75rem; border: 1.5px solid var(--border-color); border-radius: 0.5rem; font-weight: 600; text-decoration: none; color: var(--text-primary); transition: all 0.15s; font-size: 0.9375rem; }
-        .pricing-cta:hover { border-color: var(--accent); color: var(--accent); }
-        .pricing-cta-highlighted { background: var(--accent); border-color: var(--accent); color: #fff; }
-        .pricing-cta-highlighted:hover { opacity: 0.9; color: #fff; }
-
         /* CTA */
         .landing-cta { background: var(--accent); padding: 5rem 1.5rem; text-align: center; }
         .landing-cta-inner { max-width: 640px; margin: 0 auto; }
@@ -410,7 +306,6 @@ export default function LandingPage() {
           .landing-hero { flex-direction: column; }
           .hero-visual { width: 100%; }
           .features-grid { grid-template-columns: repeat(2, 1fr); }
-          .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
         }
         @media (max-width: 640px) {
           .landing-nav-links { display: none; }
