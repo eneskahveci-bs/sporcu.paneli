@@ -1,0 +1,40 @@
+{
+  "name": "Sporcu Paneli",
+  "short_name": "Sporcu",
+  "description": "Spor Akademisi Yönetim Sistemi",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "tr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Sporcu Ekle",
+      "url": "/athletes?action=new",
+      "description": "Yeni sporcu kaydı oluştur"
+    },
+    {
+      "name": "Yoklama Al",
+      "url": "/attendance",
+      "description": "Günlük yoklama ekranı"
+    }
+  ]
+}
