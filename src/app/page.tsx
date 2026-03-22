@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { validateTC } from '@/lib/utils/tc-validation'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, X } from 'lucide-react'
 
 type LoginTab = 'athlete' | 'coach' | 'admin'
 
-function LoginWidget() {
+// ── Login Modal ─────────────────────────────────────────────────────────────
+function LoginModal({ onClose }: { onClose: () => void }) {
   const router = useRouter()
   const supabase = createClient()
   const [tab, setTab] = useState<LoginTab>('athlete')
@@ -25,44 +26,30 @@ function LoginWidget() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-
     if (tab !== 'admin') {
       if (!tc || tc.length !== 11) { setError('TC Kimlik No 11 haneli olmalıdır'); return }
       if (!validateTC(tc)) { setError('Geçersiz TC Kimlik No'); return }
-      if (!password || password.length !== 6) { setError('Şifre TC\'nin son 6 hanesi olmalıdır (6 karakter)'); return }
+      if (!password || password.length !== 6) { setError('Şifre TC\'nin son 6 hanesi (6 karakter)'); return }
     } else {
       if (!email || !password) { setError('E-posta ve şifre gereklidir'); return }
     }
-
     setLoading(true)
     try {
       const loginEmail = tab !== 'admin' ? `${tc}@sporcu.tc` : email
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
-
-      if (authErr) {
-        setError('Giriş bilgileri hatalı. Lütfen kontrol edin.')
-        return
-      }
-
+      if (authErr) { setError('Giriş bilgileri hatalı.'); return }
       const role = data.user?.user_metadata?.role
       if (tab === 'athlete' && role !== 'athlete' && role !== 'parent') {
-        await supabase.auth.signOut()
-        setError('Bu hesap sporcu/veli girişi için kayıtlı değil.')
-        return
+        await supabase.auth.signOut(); setError('Bu hesap sporcu/veli girişi için kayıtlı değil.'); return
       }
       if (tab === 'coach' && role !== 'coach') {
-        await supabase.auth.signOut()
-        setError('Bu hesap antrenör girişi için kayıtlı değil.')
-        return
+        await supabase.auth.signOut(); setError('Bu hesap antrenör girişi için kayıtlı değil.'); return
       }
       if (tab === 'admin' && role !== 'admin') {
-        await supabase.auth.signOut()
-        setError('Bu hesap yönetici girişi için kayıtlı değil.')
-        return
+        await supabase.auth.signOut(); setError('Bu hesap yönetici girişi için kayıtlı değil.'); return
       }
-
-      if (role === 'athlete' || role === 'parent') router.push('/portal')
-      else router.push('/dashboard')
+      onClose()
+      router.push(role === 'athlete' || role === 'parent' ? '/portal' : '/dashboard')
     } finally {
       setLoading(false)
     }
@@ -75,118 +62,286 @@ function LoginWidget() {
   ]
 
   return (
-    <div className="login-widget">
-      <div className="login-widget-header">
-        <h3 className="login-widget-title">Giriş Yap</h3>
-        <p className="login-widget-sub">Hesap türünüzü seçin</p>
-      </div>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3 className="modal-title">Giriş Yap</h3>
+          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
 
-      <div className="login-tabs">
-        {tabs.map(t => (
-          <button
-            key={t.key}
-            onClick={() => reset(t.key)}
-            className={`login-tab ${tab === t.key ? 'active' : ''}`}
-          >
-            <span>{t.icon}</span>
-            <span>{t.label}</span>
+        <div className="login-tabs">
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => reset(t.key)} className={`login-tab${tab === t.key ? ' active' : ''}`}>
+              <span>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={handleLogin} className="modal-form">
+          {tab !== 'admin' ? (
+            <>
+              <div className="fg">
+                <label className="fl">TC Kimlik No</label>
+                <input className="fi" type="text" inputMode="numeric" placeholder="11 haneli TC"
+                  value={tc} onChange={e => setTc(e.target.value.replace(/\D/g, '').slice(0, 11))} maxLength={11} />
+              </div>
+              <div className="fg">
+                <label className="fl">Şifre <span className="fh">(TC&apos;nin son 6 hanesi)</span></label>
+                <div className="pw-wrap">
+                  <input className="fi" type={showPw ? 'text' : 'password'} placeholder="Son 6 hane"
+                    value={password} onChange={e => setPassword(e.target.value.replace(/\D/g, '').slice(0, 6))} maxLength={6} />
+                  <button type="button" className="pw-eye" onClick={() => setShowPw(p => !p)}>
+                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="fg">
+                <label className="fl">E-posta</label>
+                <input className="fi" type="email" placeholder="yonetici@akademi.com"
+                  value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+              </div>
+              <div className="fg">
+                <label className="fl">Şifre</label>
+                <div className="pw-wrap">
+                  <input className="fi" type={showPw ? 'text' : 'password'} placeholder="Şifreniz"
+                    value={password} onChange={e => setPassword(e.target.value)} autoComplete="current-password" />
+                  <button type="button" className="pw-eye" onClick={() => setShowPw(p => !p)}>
+                    {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+          {error && <div className="modal-error">{error}</div>}
+          <button type="submit" disabled={loading} className="modal-submit">
+            {loading ? <Loader2 size={16} className="spin" /> : null}
+            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
           </button>
-        ))}
+        </form>
       </div>
-
-      <form onSubmit={handleLogin} className="login-form">
-        {tab !== 'admin' ? (
-          <>
-            <div className="lw-group">
-              <label className="lw-label">TC Kimlik No</label>
-              <input
-                className="lw-input"
-                type="text"
-                inputMode="numeric"
-                placeholder="11 haneli TC Kimlik No"
-                value={tc}
-                onChange={e => setTc(e.target.value.replace(/\D/g, '').slice(0, 11))}
-                maxLength={11}
-                autoComplete="username"
-              />
-            </div>
-            <div className="lw-group">
-              <label className="lw-label">Şifre <span className="lw-hint">(TC&apos;nin son 6 hanesi)</span></label>
-              <div className="lw-pw-wrap">
-                <input
-                  className="lw-input"
-                  type={showPw ? 'text' : 'password'}
-                  placeholder="Son 6 hane"
-                  value={password}
-                  onChange={e => setPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  maxLength={6}
-                  autoComplete="current-password"
-                />
-                <button type="button" className="lw-eye" onClick={() => setShowPw(p => !p)}>
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="lw-group">
-              <label className="lw-label">E-posta</label>
-              <input
-                className="lw-input"
-                type="email"
-                placeholder="yonetici@akademi.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                autoComplete="email"
-              />
-            </div>
-            <div className="lw-group">
-              <label className="lw-label">Şifre</label>
-              <div className="lw-pw-wrap">
-                <input
-                  className="lw-input"
-                  type={showPw ? 'text' : 'password'}
-                  placeholder="Şifreniz"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-                <button type="button" className="lw-eye" onClick={() => setShowPw(p => !p)}>
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {error && <div className="lw-error">{error}</div>}
-
-        <button type="submit" disabled={loading} className="lw-btn">
-          {loading ? <Loader2 size={16} className="spin" /> : null}
-          {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
-        </button>
-      </form>
     </div>
   )
 }
 
-export default function LandingPage() {
-  const [notify, setNotify] = useState(false)
+// ── Akademi Kayıt Modal ───────────────────────────────────────────────────────
+function AkademiKayitModal({ onClose }: { onClose: () => void }) {
+  const [form, setForm] = useState({ akademi_adi: '', yetkili_adi: '', email: '', telefon: '', sehir: '', sporlar: '', sporcu_sayisi: '', notlar: '' })
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleAkademiKayit = () => {
-    setNotify(true)
-    setTimeout(() => setNotify(false), 4000)
+  const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!form.akademi_adi || !form.yetkili_adi || !form.email || !form.telefon) {
+      setError('Akademi adı, yetkili, e-posta ve telefon zorunludur'); return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/academy-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Hata oluştu') }
+      setSuccess(true)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Bir hata oluştu')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="landing-page">
-      {/* Notification */}
-      {notify && (
-        <div className="lp-notify">
-          Akademi kaydı için lütfen <strong>eneskahveci.bs@gmail.com</strong> veya <strong>+90 546 977 58 68</strong> ile iletişime geçin.
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-wide" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3 className="modal-title">Akademi Kayıt Talebi</h3>
+          <button className="modal-close" onClick={onClose}><X size={18} /></button>
         </div>
-      )}
+
+        {success ? (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎉</div>
+            <h4 style={{ fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text)' }}>Talebiniz Alındı!</h4>
+            <p style={{ color: 'var(--text2)', fontSize: '0.9375rem', marginBottom: '1.5rem' }}>
+              En kısa sürede <strong>{form.email}</strong> adresinize veya telefonla geri döneceğiz.
+            </p>
+            <button className="modal-submit" onClick={onClose}>Kapat</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="modal-form">
+            <div className="fg-grid">
+              <div className="fg">
+                <label className="fl">Akademi Adı <span className="req">*</span></label>
+                <input className="fi" placeholder="Örnek Spor Akademisi" value={form.akademi_adi} onChange={e => set('akademi_adi', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Yetkili Kişi <span className="req">*</span></label>
+                <input className="fi" placeholder="Ad Soyad" value={form.yetkili_adi} onChange={e => set('yetkili_adi', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">E-posta <span className="req">*</span></label>
+                <input className="fi" type="email" placeholder="info@akademi.com" value={form.email} onChange={e => set('email', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Telefon <span className="req">*</span></label>
+                <input className="fi" type="tel" placeholder="+90 5xx xxx xx xx" value={form.telefon} onChange={e => set('telefon', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Şehir</label>
+                <input className="fi" placeholder="İstanbul" value={form.sehir} onChange={e => set('sehir', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Tahmini Sporcu Sayısı</label>
+                <input className="fi" type="number" placeholder="50" value={form.sporcu_sayisi} onChange={e => set('sporcu_sayisi', e.target.value)} />
+              </div>
+            </div>
+            <div className="fg">
+              <label className="fl">Spor Dalları</label>
+              <input className="fi" placeholder="Futbol, Basketbol, Yüzme..." value={form.sporlar} onChange={e => set('sporlar', e.target.value)} />
+            </div>
+            <div className="fg">
+              <label className="fl">Notlar / Sorular</label>
+              <textarea className="fi" rows={3} placeholder="Herhangi bir sorunuz veya notunuz..." value={form.notlar} onChange={e => set('notlar', e.target.value)} style={{ resize: 'vertical' }} />
+            </div>
+            {error && <div className="modal-error">{error}</div>}
+            <button type="submit" disabled={loading} className="modal-submit">
+              {loading ? <Loader2 size={16} className="spin" /> : null}
+              {loading ? 'Gönderiliyor...' : 'Kayıt Talebi Gönder'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Sporcu Ön Kayıt Modal ───────────────────────────────────────────────────
+function OnKayitModal({ onClose }: { onClose: () => void }) {
+  const supabase = createClient()
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', sport_interest: '', parent_name: '', parent_phone: '', notes: '', kvkk: false })
+  const [loading, setLoading] = useState(false)
+  const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
+
+  const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!form.first_name || !form.last_name || !form.phone) { setError('Ad, soyad ve telefon zorunludur'); return }
+    if (!form.kvkk) { setError('KVKK metnini onaylamanız gerekmektedir'); return }
+    setLoading(true)
+    try {
+      const { error: err } = await supabase.from('pre_registrations').insert({
+        first_name: form.first_name,
+        last_name: form.last_name,
+        phone: form.phone,
+        email: form.email || null,
+        sport_interest: form.sport_interest || null,
+        parent_name: form.parent_name || null,
+        parent_phone: form.parent_phone || null,
+        notes: form.notes || null,
+        status: 'pending',
+      })
+      if (err) throw err
+      setSuccess(true)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Bir hata oluştu')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box modal-wide" onClick={e => e.stopPropagation()}>
+        <div className="modal-head">
+          <h3 className="modal-title">Sporcu Ön Kayıt</h3>
+          <button className="modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        {success ? (
+          <div style={{ padding: '2rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎉</div>
+            <h4 style={{ fontWeight: 700, marginBottom: '0.5rem', color: 'var(--text)' }}>Ön Kaydınız Alındı!</h4>
+            <p style={{ color: 'var(--text2)', fontSize: '0.9375rem', marginBottom: '1.5rem' }}>
+              Başvurunuz incelemeye alındı. Akademi ekibi en kısa sürede sizinle iletişime geçecektir.
+            </p>
+            <button className="modal-submit" onClick={onClose}>Kapat</button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="modal-form">
+            <div className="fg-grid">
+              <div className="fg">
+                <label className="fl">Ad <span className="req">*</span></label>
+                <input className="fi" placeholder="Sporcu adı" value={form.first_name} onChange={e => set('first_name', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Soyad <span className="req">*</span></label>
+                <input className="fi" placeholder="Sporcu soyadı" value={form.last_name} onChange={e => set('last_name', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Telefon <span className="req">*</span></label>
+                <input className="fi" type="tel" placeholder="+90 5xx xxx xx xx" value={form.phone} onChange={e => set('phone', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">E-posta</label>
+                <input className="fi" type="email" placeholder="sporcu@email.com" value={form.email} onChange={e => set('email', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">İlgilendiğiniz Spor Dalı</label>
+                <input className="fi" placeholder="Futbol, Basketbol..." value={form.sport_interest} onChange={e => set('sport_interest', e.target.value)} />
+              </div>
+              <div className="fg">
+                <label className="fl">Veli Adı</label>
+                <input className="fi" placeholder="Veli/vasi adı soyadı" value={form.parent_name} onChange={e => set('parent_name', e.target.value)} />
+              </div>
+            </div>
+            <div className="fg">
+              <label className="fl">Veli Telefonu</label>
+              <input className="fi" type="tel" placeholder="+90 5xx xxx xx xx" value={form.parent_phone} onChange={e => set('parent_phone', e.target.value)} />
+            </div>
+            <div className="fg">
+              <label className="fl">Notlar</label>
+              <textarea className="fi" rows={2} placeholder="Eklemek istediğiniz bilgiler..." value={form.notes} onChange={e => set('notes', e.target.value)} style={{ resize: 'vertical' }} />
+            </div>
+            <label className="kvkk-check">
+              <input type="checkbox" checked={form.kvkk} onChange={e => set('kvkk', e.target.checked)} />
+              <span>
+                <Link href="/kvkk" target="_blank" style={{ color: 'var(--blue2)' }}>KVKK Aydınlatma Metni</Link>&apos;ni okudum, kişisel verilerimin işlenmesine onay veriyorum.
+              </span>
+            </label>
+            {error && <div className="modal-error">{error}</div>}
+            <button type="submit" disabled={loading} className="modal-submit">
+              {loading ? <Loader2 size={16} className="spin" /> : null}
+              {loading ? 'Gönderiliyor...' : 'Ön Kayıt Gönder'}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Main Page ────────────────────────────────────────────────────────────────
+export default function LandingPage() {
+  const [loginOpen, setLoginOpen] = useState(false)
+  const [akademiOpen, setAkademiOpen] = useState(false)
+  const [onKayitOpen, setOnKayitOpen] = useState(false)
+
+  return (
+    <div className="landing-page">
+      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
+      {akademiOpen && <AkademiKayitModal onClose={() => setAkademiOpen(false)} />}
+      {onKayitOpen && <OnKayitModal onClose={() => setOnKayitOpen(false)} />}
 
       {/* Navbar */}
       <nav className="landing-nav">
@@ -200,7 +355,8 @@ export default function LandingPage() {
             <a href="#contact">İletişim</a>
           </div>
           <div className="landing-nav-actions">
-            <button onClick={handleAkademiKayit} className="btn-primary-sm">Akademi Kayıt</button>
+            <button onClick={() => setLoginOpen(true)} className="btn-ghost-sm">Giriş Yap</button>
+            <button onClick={() => setAkademiOpen(true)} className="btn-primary-sm">Akademi Kayıt</button>
           </div>
         </div>
       </nav>
@@ -219,7 +375,24 @@ export default function LandingPage() {
           </p>
         </div>
         <div className="hero-visual">
-          <LoginWidget />
+          <div className="onkayit-card">
+            <div className="onkayit-card-top">
+              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📋</div>
+              <h3 className="onkayit-title">Sporcu Ön Kayıt</h3>
+              <p className="onkayit-desc">
+                Akademimize katılmak ister misiniz? Ön kayıt formunu doldurun, ekibimiz sizinle iletişime geçsin.
+              </p>
+            </div>
+            <ul className="onkayit-list">
+              <li>✅ Ücretsiz ön kayıt</li>
+              <li>✅ Hızlı geri dönüş</li>
+              <li>✅ Tüm spor dalları</li>
+            </ul>
+            <button className="onkayit-btn" onClick={() => setOnKayitOpen(true)}>
+              Ön Kayıt Yap
+            </button>
+            <p className="onkayit-note">Ya da <a href="tel:+905469775868" style={{ color: 'var(--blue2)', textDecoration: 'none' }}>+90 546 977 58 68</a> numaralı hattı arayın</p>
+          </div>
         </div>
       </section>
 
@@ -256,25 +429,26 @@ export default function LandingPage() {
       <footer id="contact" className="landing-footer">
         <div className="landing-footer-inner">
           <div className="footer-brand">
-            <span className="landing-logo-icon">🏅</span>
-            <span className="landing-logo-text">Sporcu Paneli</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+              <span className="landing-logo-icon">🏅</span>
+              <span className="landing-logo-text">Sporcu Paneli</span>
+            </div>
             <p className="footer-tagline">Spor akademinizi güçlendirin.</p>
           </div>
           <div className="footer-links">
             <div className="footer-link-group">
               <h4>Ürün</h4>
               <a href="#features">Özellikler</a>
-              <Link href="/on-kayit">Ön Kayıt</Link>
             </div>
             <div className="footer-link-group">
               <h4>Hukuki</h4>
-              <a href="#">Gizlilik Politikası</a>
-              <a href="#">Kullanım Koşulları</a>
-              <a href="#">KVKK Aydınlatma</a>
+              <Link href="/gizlilik">Gizlilik Politikası</Link>
+              <Link href="/kullanim-kosullari">Kullanım Koşulları</Link>
+              <Link href="/kvkk">KVKK Aydınlatma</Link>
             </div>
             <div className="footer-link-group">
               <h4>İletişim</h4>
-              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Enes Kahveci</span>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text3)' }}>Enes Kahveci</span>
               <a href="mailto:eneskahveci.bs@gmail.com">eneskahveci.bs@gmail.com</a>
               <a href="tel:+905469775868">+90 546 977 58 68</a>
             </div>
@@ -289,21 +463,19 @@ export default function LandingPage() {
       <style>{`
         .landing-page { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 
-        /* Notification */
-        .lp-notify { position: fixed; top: 1rem; left: 50%; transform: translateX(-50%); z-index: 9999; background: var(--bg4); border: 1px solid var(--blue2); border-radius: 0.75rem; padding: 0.875rem 1.25rem; font-size: 0.875rem; color: var(--text); box-shadow: var(--shadow); max-width: 480px; width: 90%; text-align: center; animation: slideDown 0.3s ease; }
-        @keyframes slideDown { from { opacity:0; transform: translateX(-50%) translateY(-1rem); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
-
         /* Nav */
-        .landing-nav { position: sticky; top: 0; z-index: 50; background: var(--bg2); border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); }
+        .landing-nav { position: sticky; top: 0; z-index: 100; background: var(--bg2); border-bottom: 1px solid var(--border); backdrop-filter: blur(12px); }
         .landing-nav-inner { max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; height: 64px; display: flex; align-items: center; gap: 2rem; }
-        .landing-logo { display: flex; align-items: center; gap: 0.5rem; text-decoration: none; margin-right: auto; }
+        .landing-logo { display: flex; align-items: center; gap: 0.5rem; margin-right: auto; text-decoration: none; }
         .landing-logo-icon { font-size: 1.5rem; }
         .landing-logo-text { font-size: 1.125rem; font-weight: 700; color: var(--text); }
         .landing-nav-links { display: flex; gap: 2rem; }
         .landing-nav-links a { color: var(--text2); text-decoration: none; font-size: 0.9375rem; transition: color 0.15s; }
         .landing-nav-links a:hover { color: var(--blue2); }
-        .landing-nav-actions { display: flex; gap: 0.75rem; }
-        .btn-primary-sm { padding: 0.4375rem 1rem; background: var(--grad); border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #fff; border: none; cursor: pointer; transition: opacity 0.15s; text-decoration: none; }
+        .landing-nav-actions { display: flex; gap: 0.625rem; }
+        .btn-ghost-sm { padding: 0.4375rem 1rem; background: transparent; border: 1px solid var(--border2); border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; color: var(--text); cursor: pointer; transition: all 0.15s; }
+        .btn-ghost-sm:hover { background: var(--bg4); border-color: var(--blue2); color: var(--blue2); }
+        .btn-primary-sm { padding: 0.4375rem 1rem; background: var(--grad); border-radius: 0.5rem; font-size: 0.875rem; font-weight: 600; color: #fff; border: none; cursor: pointer; transition: opacity 0.15s; }
         .btn-primary-sm:hover { opacity: 0.88; }
 
         /* Hero */
@@ -313,33 +485,60 @@ export default function LandingPage() {
         .hero-title { font-size: clamp(2rem, 4vw, 3.25rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 1.25rem; color: var(--text); }
         .hero-title-accent { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .hero-subtitle { font-size: 1.0625rem; color: var(--text2); line-height: 1.7; max-width: 480px; }
-        .hero-visual { flex: 1; }
+        .hero-visual { flex: 1; max-width: 420px; }
 
-        /* Login Widget */
-        .login-widget { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
-        .login-widget-header { padding: 1.5rem 1.5rem 0; }
-        .login-widget-title { font-size: 1.125rem; font-weight: 700; color: var(--text); margin-bottom: 0.25rem; }
-        .login-widget-sub { font-size: 0.8125rem; color: var(--text3); }
+        /* Ön Kayıt Card */
+        .onkayit-card { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 2rem; box-shadow: var(--shadow); }
+        .onkayit-card-top { margin-bottom: 1.25rem; }
+        .onkayit-title { font-size: 1.25rem; font-weight: 700; color: var(--text); margin-bottom: 0.5rem; }
+        .onkayit-desc { font-size: 0.9rem; color: var(--text2); line-height: 1.6; }
+        .onkayit-list { list-style: none; padding: 0; margin: 0 0 1.5rem; display: flex; flex-direction: column; gap: 0.375rem; }
+        .onkayit-list li { font-size: 0.875rem; color: var(--text2); }
+        .onkayit-btn { width: 100%; padding: 0.875rem; background: var(--grad); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 1rem; font-weight: 700; cursor: pointer; transition: opacity 0.15s; margin-bottom: 0.75rem; }
+        .onkayit-btn:hover { opacity: 0.88; }
+        .onkayit-note { font-size: 0.8125rem; color: var(--text3); text-align: center; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 1rem; }
+        .modal-box { background: var(--bg2); border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; max-width: 440px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); animation: fadeIn 0.18s ease; }
+        .modal-wide { max-width: 600px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 1.5rem 0; }
+        .modal-title { font-size: 1.125rem; font-weight: 700; color: var(--text); }
+        .modal-close { background: none; border: none; cursor: pointer; color: var(--text3); display: flex; align-items: center; padding: 4px; border-radius: 6px; transition: all 0.15s; }
+        .modal-close:hover { background: var(--bg4); color: var(--text); }
+        .modal-form { padding: 1.25rem 1.5rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        .modal-error { font-size: 0.8125rem; color: var(--red, #ef4444); background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); padding: 0.625rem 0.875rem; border-radius: var(--radius-sm); }
+        .modal-submit { padding: 0.75rem; background: var(--grad); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 0.9375rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .modal-submit:hover:not(:disabled) { opacity: 0.88; }
+        .modal-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Form fields */
+        .fg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .fg { display: flex; flex-direction: column; gap: 0.375rem; }
+        .fl { font-size: 0.8125rem; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 0.25rem; }
+        .fh { font-weight: 400; color: var(--text3); font-size: 0.75rem; }
+        .req { color: var(--red, #ef4444); }
+        .fi { width: 100%; padding: 0.625rem 0.875rem; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 0.9375rem; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box; font-family: inherit; }
+        .fi:focus { border-color: var(--blue2); box-shadow: 0 0 0 3px rgba(45,92,179,0.15); }
+        .fi::placeholder { color: var(--text3); }
+        .pw-wrap { position: relative; }
+        .pw-wrap .fi { padding-right: 2.5rem; }
+        .pw-eye { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text3); display: flex; align-items: center; transition: color 0.15s; }
+        .pw-eye:hover { color: var(--text2); }
+
+        /* Login tabs */
         .login-tabs { display: flex; padding: 1rem 1.5rem 0; border-bottom: 1px solid var(--border); }
         .login-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; padding: 0.625rem 0.5rem; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 0.75rem; font-weight: 500; color: var(--text3); transition: all 0.15s; margin-bottom: -1px; }
-        .login-tab span:first-child { font-size: 1.25rem; }
+        .login-tab span:first-child { font-size: 1.125rem; }
         .login-tab.active { color: var(--blue2); border-bottom-color: var(--blue2); }
         .login-tab:hover:not(.active) { color: var(--text); }
-        .login-form { padding: 1.25rem 1.5rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-        .lw-group { display: flex; flex-direction: column; gap: 0.375rem; }
-        .lw-label { font-size: 0.8125rem; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 0.375rem; }
-        .lw-hint { font-weight: 400; color: var(--text3); font-size: 0.75rem; }
-        .lw-input { width: 100%; padding: 0.625rem 0.875rem; background: var(--bg); border: 1px solid var(--border2); border-radius: var(--radius-sm); font-size: 0.9375rem; color: var(--text); outline: none; transition: border-color 0.15s, box-shadow 0.15s; box-sizing: border-box; }
-        .lw-input:focus { border-color: var(--blue2); box-shadow: 0 0 0 3px rgba(45,92,179,0.15); }
-        .lw-input::placeholder { color: var(--text3); }
-        .lw-pw-wrap { position: relative; }
-        .lw-pw-wrap .lw-input { padding-right: 2.5rem; }
-        .lw-eye { position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text3); display: flex; align-items: center; padding: 0; transition: color 0.15s; }
-        .lw-eye:hover { color: var(--text2); }
-        .lw-error { font-size: 0.8125rem; color: var(--red); background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); padding: 0.625rem 0.875rem; border-radius: var(--radius-sm); }
-        .lw-btn { padding: 0.75rem; background: var(--grad); color: #fff; border: none; border-radius: var(--radius-sm); font-size: 0.9375rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s, box-shadow 0.15s; display: flex; align-items: center; justify-content: center; gap: 0.5rem; }
-        .lw-btn:hover:not(:disabled) { opacity: 0.88; box-shadow: var(--shadow-sm); }
-        .lw-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* KVKK check */
+        .kvkk-check { display: flex; gap: 0.625rem; align-items: flex-start; cursor: pointer; font-size: 0.8125rem; color: var(--text2); }
+        .kvkk-check input { margin-top: 2px; flex-shrink: 0; }
+
+        /* Spin */
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -362,7 +561,7 @@ export default function LandingPage() {
         .landing-footer { background: var(--bg2); border-top: 1px solid var(--border); padding: 3rem 1.5rem 1.5rem; margin-top: 2rem; }
         .landing-footer-inner { max-width: 1200px; margin: 0 auto; display: flex; gap: 4rem; margin-bottom: 2.5rem; }
         .footer-brand { flex: 1; }
-        .footer-tagline { font-size: 0.875rem; color: var(--text3); margin-top: 0.5rem; }
+        .footer-tagline { font-size: 0.875rem; color: var(--text3); margin-top: 0.25rem; }
         .footer-links { display: flex; gap: 3rem; }
         .footer-link-group { display: flex; flex-direction: column; gap: 0.5rem; }
         .footer-link-group h4 { font-size: 0.8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 0.25rem; }
@@ -372,8 +571,9 @@ export default function LandingPage() {
 
         @media (max-width: 1024px) {
           .landing-hero { flex-direction: column; gap: 2.5rem; }
-          .hero-visual { width: 100%; }
+          .hero-visual { width: 100%; max-width: 100%; }
           .features-grid { grid-template-columns: repeat(2, 1fr); }
+          .fg-grid { grid-template-columns: 1fr; }
         }
         @media (max-width: 640px) {
           .landing-nav-links { display: none; }

@@ -1,9 +1,14 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/on-kayit']
-const PORTAL_ROUTES = ['/portal']
-const ADMIN_ROUTES = ['/settings', '/coaches', '/classes', '/sports', '/sms', '/pre-registrations']
+// Herkesin erişebileceği sayfalar (giriş yapılsa da yapılmasa da)
+const ALWAYS_PUBLIC = ['/gizlilik', '/kullanim-kosullari', '/kvkk']
+
+// Yalnızca giriş yapmamış kullanıcıların görmesi gereken sayfalar
+const AUTH_PUBLIC = ['/', '/login', '/register', '/on-kayit']
+
+// Yalnızca admin erişebilir
+const ADMIN_ONLY = ['/settings', '/coaches', '/sports', '/reports', '/inventory']
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -32,44 +37,41 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   const pathname = request.nextUrl.pathname
 
-  // Public routes - herkes erişebilir
-  if (PUBLIC_ROUTES.includes(pathname)) {
+  // Hukuki sayfalar — herkese açık
+  if (ALWAYS_PUBLIC.some(r => pathname.startsWith(r))) {
+    return supabaseResponse
+  }
+
+  // Giriş gerektirmeyen sayfalar
+  if (AUTH_PUBLIC.includes(pathname)) {
     if (user) {
-      // Giriş yapmışsa dashboard'a yönlendir
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/dashboard'
-      return NextResponse.redirect(redirectUrl)
+      // Giriş yapılmışsa dashboard'a yönlendir
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return supabaseResponse
   }
 
-  // Giriş yapmamışsa login'e yönlendir
+  // Giriş yapılmamışsa login'e yönlendir
   if (!user) {
-    const redirectUrl = request.nextUrl.clone()
-    redirectUrl.pathname = '/login'
-    redirectUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(redirectUrl)
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('redirect', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
-  // Kullanıcı rolünü metadata'dan al
   const role = user.user_metadata?.role as string
 
-  // Sporcu/veli sadece portal'a erişebilir
+  // Sporcu/veli → yalnızca /portal
   if (role === 'athlete' || role === 'parent') {
     if (!pathname.startsWith('/portal')) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/portal'
-      return NextResponse.redirect(redirectUrl)
+      return NextResponse.redirect(new URL('/portal', request.url))
     }
   }
 
-  // Antrenör admin sayfalarına erişemez
+  // Antrenör → admin-only sayfalara erişemez
   if (role === 'coach') {
-    const isAdminRoute = ADMIN_ROUTES.some(r => pathname.startsWith(r))
-    if (isAdminRoute) {
-      const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = '/dashboard'
-      return NextResponse.redirect(redirectUrl)
+    const blocked = ADMIN_ONLY.some(r => pathname.startsWith(r))
+    if (blocked) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
 
