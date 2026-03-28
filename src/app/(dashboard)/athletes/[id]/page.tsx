@@ -23,7 +23,7 @@ const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 
 type AttRecord = { id: string; date: string; status: string }
 type AthleteWithJoins = Athlete & { sports?: { name: string; icon?: string } | null; classes?: { name: string } | null }
-type DocRecord = { id: string; name: string; type: string; file_url: string | null; expires_at: string | null; notes: string | null; created_at: string }
+type DocRecord = { id: string; name: string; type: string; file_url: string | null; file_path: string | null; expires_at: string | null; notes: string | null; created_at: string }
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   health_report: 'Sağlık Raporu',
