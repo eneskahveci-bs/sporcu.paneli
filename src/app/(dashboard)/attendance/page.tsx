@@ -1,22 +1,23 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Check, X, Minus, Save, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check, X, Minus, Save, Loader2, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getInitials, formatDate } from '@/lib/utils/formatters'
+import { getInitials } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
 import type { Athlete, Class, Attendance } from '@/types'
 
 type AttStatus = 'present' | 'absent' | 'excused'
 
-export default function AttendancePage() {
+function AttendanceContent() {
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const today = new Date().toISOString().slice(0, 10)
-  const [date, setDate] = useState(today)
-  const [classFilter, setClassFilter] = useState('')
+  const [date, setDate] = useState(() => searchParams.get('date') || today)
+  const [classFilter, setClassFilter] = useState(() => searchParams.get('class') || '')
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [classes, setClasses] = useState<Class[]>([])
-  const [existing, setExisting] = useState<Attendance[]>([])
   const [statusMap, setStatusMap] = useState<Record<string, AttStatus>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -34,12 +35,10 @@ export default function AttendancePage() {
 
     setAthletes(a || [])
     setClasses(c || [])
-    setExisting(att || [])
 
     const map: Record<string, AttStatus> = {}
-    att?.forEach(record => { map[record.athlete_id] = record.status })
-    // Default: mark all as present
-    ;(a || []).forEach(athlete => { if (!map[athlete.id]) map[athlete.id] = 'present' })
+    att?.forEach((record: Attendance) => { map[record.athlete_id] = record.status })
+    ;(a || []).forEach((athlete: Athlete) => { if (!map[athlete.id]) map[athlete.id] = 'present' })
     setStatusMap(map)
     setLoading(false)
   }, [supabase, date])
@@ -80,6 +79,26 @@ export default function AttendancePage() {
     fetchData()
   }
 
+  const handleExportCSV = () => {
+    const className = classFilter ? classes.find(c => c.id === classFilter)?.name || '' : 'Tüm Sınıflar'
+    const rows = [['Ad', 'Soyad', 'TC', 'Sınıf', 'Durum', 'Tarih']]
+    filteredAthletes.forEach(a => {
+      const status = statusMap[a.id] || 'present'
+      const statusLabel = status === 'present' ? 'Geldi' : status === 'absent' ? 'Gelmedi' : 'İzinli'
+      const cls = classes.find(c => c.id === a.class_id)
+      rows.push([a.first_name, a.last_name, a.tc, cls?.name || '-', statusLabel, date])
+    })
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `Yoklama_${date}_${className}.csv`
+    link.click()
+    URL.revokeObjectURL(url)
+    toast.success('CSV indirildi')
+  }
+
   const changeDate = (delta: number) => {
     const d = new Date(date)
     d.setDate(d.getDate() + delta)
@@ -97,16 +116,20 @@ export default function AttendancePage() {
           <h1 className="page-title">Yoklama</h1>
           <p className="page-subtitle">Günlük devam takibi</p>
         </div>
-        <button className="btn bp" onClick={handleSave} disabled={saving || loading}>
-          {saving ? <Loader2 size={16} /> : <Save size={16} />}
-          {saving ? 'Kaydediliyor...' : 'Kaydet'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="btn bd btn-sm" onClick={handleExportCSV} disabled={loading || filteredAthletes.length === 0} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Download size={14} /> CSV
+          </button>
+          <button className="btn bp" onClick={handleSave} disabled={saving || loading}>
+            {saving ? <Loader2 size={16} /> : <Save size={16} />}
+            {saving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+        </div>
       </div>
 
       {/* Controls */}
       <div className="card" style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-          {/* Date Picker */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button className="btn bs btn-sm" onClick={() => changeDate(-1)}><ChevronLeft size={14} /></button>
             <input type="date" className="form-input" style={{ width: 'auto', minHeight: '36px', padding: '0 10px', fontSize: '14px' }}
@@ -114,14 +137,12 @@ export default function AttendancePage() {
             <button className="btn bs btn-sm" onClick={() => changeDate(1)} disabled={date >= today}><ChevronRight size={14} /></button>
           </div>
 
-          {/* Class Filter */}
           <select className="form-select" style={{ width: 'auto', minHeight: '36px', padding: '0 12px' }}
             value={classFilter} onChange={e => setClassFilter(e.target.value)}>
             <option value="">Tüm Sınıflar</option>
             {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
 
-          {/* Quick Actions */}
           <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
             <button className="btn bsu btn-sm" onClick={() => markAll('present')}><Check size={12} /> Tümü Geldi</button>
             <button className="btn bd btn-sm" onClick={() => markAll('absent')}><X size={12} /> Tümü Gelmedi</button>
@@ -173,36 +194,15 @@ export default function AttendancePage() {
                   <div style={{ fontSize: '12px', color: 'var(--text3)' }}>{a.phone || ''}</div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px' }}>
-                  <button
-                    onClick={() => setStatus(a.id, 'present')}
-                    className="btn btn-sm"
-                    style={{
-                      background: status === 'present' ? 'var(--green)' : 'var(--bg3)',
-                      color: status === 'present' ? '#fff' : 'var(--text2)',
-                      border: `1px solid ${status === 'present' ? 'var(--green)' : 'var(--border)'}`,
-                      minWidth: '80px',
-                    }}
-                  ><Check size={13} /> Geldi</button>
-                  <button
-                    onClick={() => setStatus(a.id, 'absent')}
-                    className="btn btn-sm"
-                    style={{
-                      background: status === 'absent' ? 'var(--red)' : 'var(--bg3)',
-                      color: status === 'absent' ? '#fff' : 'var(--text2)',
-                      border: `1px solid ${status === 'absent' ? 'var(--red)' : 'var(--border)'}`,
-                      minWidth: '90px',
-                    }}
-                  ><X size={13} /> Gelmedi</button>
-                  <button
-                    onClick={() => setStatus(a.id, 'excused')}
-                    className="btn btn-sm"
-                    style={{
-                      background: status === 'excused' ? 'var(--yellow)' : 'var(--bg3)',
-                      color: status === 'excused' ? '#fff' : 'var(--text2)',
-                      border: `1px solid ${status === 'excused' ? 'var(--yellow)' : 'var(--border)'}`,
-                      minWidth: '76px',
-                    }}
-                  ><Minus size={13} /> İzinli</button>
+                  <button onClick={() => setStatus(a.id, 'present')} className="btn btn-sm"
+                    style={{ background: status === 'present' ? 'var(--green)' : 'var(--bg3)', color: status === 'present' ? '#fff' : 'var(--text2)', border: `1px solid ${status === 'present' ? 'var(--green)' : 'var(--border)'}`, minWidth: '80px' }}>
+                    <Check size={13} /> Geldi</button>
+                  <button onClick={() => setStatus(a.id, 'absent')} className="btn btn-sm"
+                    style={{ background: status === 'absent' ? 'var(--red)' : 'var(--bg3)', color: status === 'absent' ? '#fff' : 'var(--text2)', border: `1px solid ${status === 'absent' ? 'var(--red)' : 'var(--border)'}`, minWidth: '90px' }}>
+                    <X size={13} /> Gelmedi</button>
+                  <button onClick={() => setStatus(a.id, 'excused')} className="btn btn-sm"
+                    style={{ background: status === 'excused' ? 'var(--yellow)' : 'var(--bg3)', color: status === 'excused' ? '#fff' : 'var(--text2)', border: `1px solid ${status === 'excused' ? 'var(--yellow)' : 'var(--border)'}`, minWidth: '76px' }}>
+                    <Minus size={13} /> İzinli</button>
                 </div>
               </div>
             )
@@ -210,5 +210,13 @@ export default function AttendancePage() {
         </div>
       )}
     </DashboardLayout>
+  )
+}
+
+export default function AttendancePage() {
+  return (
+    <Suspense fallback={<DashboardLayout title="Yoklama"><div style={{ padding: '48px', textAlign: 'center', color: 'var(--text3)' }}>Yükleniyor...</div></DashboardLayout>}>
+      <AttendanceContent />
+    </Suspense>
   )
 }

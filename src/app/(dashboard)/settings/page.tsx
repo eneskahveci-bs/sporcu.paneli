@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Save, Loader2, Building2, Bell, Shield, CreditCard } from 'lucide-react'
+import { Save, Loader2, Building2, Bell, Shield, CreditCard, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
@@ -43,6 +43,30 @@ export default function SettingsPage() {
     setSaving(false)
     if (error) { toast.error('Hata: ' + error.message); return }
     toast.success('Organizasyon bilgileri kaydedildi')
+  }
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { toast.error('Logo 2MB\'dan küçük olmalıdır'); return }
+
+    setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    const orgId = user?.user_metadata?.organization_id
+    const ext = file.name.split('.').pop()
+    const path = `logos/${orgId}.${ext}`
+
+    const { error: upErr } = await supabase.storage.from('organization-assets').upload(path, file, { upsert: true })
+    if (upErr) { setSaving(false); toast.error('Yükleme hatası: ' + upErr.message); return }
+
+    const { data: urlData } = supabase.storage.from('organization-assets').getPublicUrl(path)
+    const logoUrl = urlData.publicUrl
+
+    const { error } = await supabase.from('organizations').update({ logo: logoUrl }).eq('id', orgId)
+    setSaving(false)
+    if (error) { toast.error('Kayıt hatası: ' + error.message); return }
+    setOrg(p => ({ ...p, logo: logoUrl }))
+    toast.success('Logo güncellendi')
   }
 
   const saveSettings = async (entries: Record<string, string>) => {
@@ -101,6 +125,28 @@ export default function SettingsPage() {
               {tab === 0 && (
                 <>
                   <h3 className="m-tit" style={{ marginBottom: '20px' }}>Organizasyon Bilgileri</h3>
+
+                  {/* Logo Upload */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', padding: '16px', background: 'var(--bg4)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                    <div style={{ width: '72px', height: '72px', borderRadius: '12px', background: 'var(--bg3)', border: '2px dashed var(--border2)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+                      {org.logo ? (
+                        <img src={org.logo} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span style={{ fontSize: '28px' }}>🏅</span>
+                      )}
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '14px', marginBottom: '4px' }}>Akademi Logosu</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text3)', marginBottom: '8px' }}>PNG, JPG — maks. 2MB</div>
+                      <label style={{ cursor: 'pointer' }}>
+                        <span className="btn bs btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Upload size={13} /> Logo Yükle
+                        </span>
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleLogoUpload} />
+                      </label>
+                    </div>
+                  </div>
+
                   <div className="grid-2" style={{ gap: '14px', marginBottom: '20px' }}>
                     <F label="Akademi Adı" id="org-name" value={org.name} onChange={v => setOrg(p => ({ ...p, name: v }))} />
                     <F label="Telefon" id="org-phone" value={org.phone} onChange={v => setOrg(p => ({ ...p, phone: v }))} type="tel" />

@@ -126,6 +126,9 @@ export interface Class {
   name: string
   description?: string
   schedule?: string
+  schedule_days?: number[]
+  schedule_time?: string
+  schedule_time_end?: string
   max_students?: number
   age_group?: string
   is_active: boolean
