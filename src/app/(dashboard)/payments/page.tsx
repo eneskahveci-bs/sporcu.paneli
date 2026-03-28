@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, TrendingDown, Clock, AlertTriangle } from 'lucide-react'
+import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
@@ -14,12 +14,14 @@ const METHOD_LABEL: Record<string, string> = { cash: 'Nakit', card: 'Kart', bank
 export default function PaymentsPage() {
   const supabase = createClient()
   const [payments, setPayments] = useState<Payment[]>([])
+  const [pendingApprovals, setPendingApprovals] = useState<Payment[]>([])
   const [athletes, setAthletes] = useState<Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'>[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showBulkModal, setShowBulkModal] = useState(false)
+  const [approving, setApproving] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const PER_PAGE = 20
 
@@ -32,6 +34,7 @@ export default function PaymentsPage() {
       supabase.from('athletes').select('id, first_name, last_name, monthly_fee').eq('organization_id', orgId).eq('status', 'active'),
     ])
     setPayments(p || [])
+    setPendingApprovals((p || []).filter((pay: Payment) => pay.notification_status === 'pending_approval'))
     setAthletes(a || [])
     setLoading(false)
   }, [supabase])
@@ -55,6 +58,33 @@ export default function PaymentsPage() {
   const pending = income.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0)
   const overdue = income.filter(p => p.status === 'overdue').reduce((s, p) => s + p.amount, 0)
   const totalIncome = income.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0)
+
+  const approveNotification = async (p: Payment) => {
+    setApproving(p.id)
+    const { error } = await supabase.from('payments').update({
+      status: 'completed',
+      notification_status: 'approved',
+      paid_date: p.due_date || new Date().toISOString().slice(0, 10),
+    }).eq('id', p.id)
+    if (error) { toast.error('Hata: ' + error.message); setApproving(null); return }
+    if (p.source === 'parent_notification' && p.athlete_id && p.due_date) {
+      await supabase.from('payments').update({ status: 'completed' })
+        .eq('athlete_id', p.athlete_id).eq('due_date', p.due_date).eq('source', 'plan').neq('id', p.id)
+    }
+    toast.success(`${p.athlete_name} ödemesi onaylandı`)
+    setApproving(null)
+    fetchData()
+  }
+
+  const rejectNotification = async (p: Payment) => {
+    if (!confirm(`${p.athlete_name} tarafından yapılan ${formatCurrency(p.amount)} tutarındaki bildirimi reddetmek istiyor musunuz?`)) return
+    setApproving(p.id)
+    const { error } = await supabase.from('payments').delete().eq('id', p.id)
+    if (error) { toast.error('Hata: ' + error.message); setApproving(null); return }
+    toast.success('Bildirim reddedildi')
+    setApproving(null)
+    fetchData()
+  }
 
   const markPaid = async (id: string) => {
     const { error } = await supabase.from('payments').update({ status: 'completed', paid_date: new Date().toISOString().slice(0, 10) }).eq('id', id)
@@ -102,6 +132,35 @@ export default function PaymentsPage() {
           </div>
         ))}
       </div>
+
+      {/* Pending Approval Notifications */}
+      {pendingApprovals.length > 0 && (
+        <div style={{ padding: '14px 16px', background: 'rgba(216,163,18,0.08)', borderRadius: '12px', border: '1px solid rgba(216,163,18,0.3)', borderLeft: '4px solid var(--yellow)', marginBottom: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <Bell size={16} style={{ color: 'var(--yellow)' }} />
+            <span style={{ fontWeight: 700, fontSize: '14px' }}>Onay Bekleyen Veli Bildirimleri</span>
+            <span style={{ background: 'var(--yellow)', color: '#000', borderRadius: '10px', padding: '1px 8px', fontSize: '11px', fontWeight: 800 }}>{pendingApprovals.length}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {pendingApprovals.map(p => (
+              <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg2)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, fontSize: '13px' }}>{p.athlete_name} — {formatCurrency(p.amount)}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text3)' }}>{formatDate(p.due_date)} • {p.description || p.category || 'Aidat'}{p.method ? ` • ${p.method === 'cash' ? 'Nakit' : p.method === 'card' ? 'Kart' : p.method === 'bank_transfer' ? 'Havale' : p.method}` : ''}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button className="btn bsu btn-xs" onClick={() => approveNotification(p)} disabled={approving === p.id} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    {approving === p.id ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Check size={12} />} Onayla
+                  </button>
+                  <button className="btn bd btn-xs" onClick={() => rejectNotification(p)} disabled={approving === p.id} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <X size={12} /> Reddet
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="filter-bar">
