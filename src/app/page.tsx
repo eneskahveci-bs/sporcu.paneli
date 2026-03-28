@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -35,7 +35,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
     }
     setLoading(true)
     try {
-      const loginEmail = tab !== 'admin' ? `${tc}@sporcu.tc` : email
+      const loginEmail = tab === 'athlete' ? `${tc}@sporcu.tc` : tab === 'coach' ? `${tc}@antrenor.tc` : email
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
       if (authErr) { setError('Giriş bilgileri hatalı.'); return }
       const role = data.user?.user_metadata?.role
@@ -49,7 +49,13 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         await supabase.auth.signOut(); setError('Bu hesap yönetici girişi için kayıtlı değil.'); return
       }
       onClose()
-      router.push(role === 'athlete' || role === 'parent' ? '/portal' : '/dashboard')
+      if (role === 'athlete' || role === 'parent') {
+        router.push('/portal')
+      } else if (role === 'coach') {
+        router.push('/antrenor')
+      } else {
+        router.push('/dashboard')
+      }
     } finally {
       setLoading(false)
     }
@@ -336,6 +342,12 @@ export default function LandingPage() {
   const [loginOpen, setLoginOpen] = useState(false)
   const [akademiOpen, setAkademiOpen] = useState(false)
   const [onKayitOpen, setOnKayitOpen] = useState(false)
+
+  // Middleware'den ?modal=login ile yönlendirilince otomatik aç
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('modal') === 'login') setLoginOpen(true)
+  }, [])
 
   return (
     <div className="landing-page">

@@ -1,12 +1,13 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Filter, Download, Upload, Eye, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Search, Filter, Download, Upload, Eye, Edit, Trash2, Loader2, Key } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatCurrency, calculateAge, getInitials } from '@/lib/utils/formatters'
 import { validateTC } from '@/lib/utils/tc-validation'
 import { toast } from 'sonner'
-import type { Athlete, Sport, Class } from '@/types'
+import type { Athlete, Sport, Class, Branch } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = { active: 'Aktif', inactive: 'Pasif', pending: 'Beklemede' }
 const STATUS_BADGE: Record<string, string> = { active: 'badge-green', inactive: 'badge-gray', pending: 'badge-yellow' }
@@ -16,14 +17,18 @@ export default function AthletesPage() {
   const [athletes, setAthletes] = useState<Athlete[]>([])
   const [sports, setSports] = useState<Sport[]>([])
   const [classes, setClasses] = useState<Class[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [sportFilter, setSportFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingAthlete, setEditingAthlete] = useState<Athlete | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [importing, setImporting] = useState(false)
+  const importRef = useRef<HTMLInputElement>(null)
   const PER_PAGE = 20
 
   const fetchData = useCallback(async () => {
@@ -32,15 +37,17 @@ export default function AthletesPage() {
     if (!orgId) return
 
     setLoading(true)
-    const [{ data: a }, { data: s }, { data: c }] = await Promise.all([
+    const [{ data: a }, { data: s }, { data: c }, { data: br }] = await Promise.all([
       supabase.from('athletes').select('*, sports(name), classes(name), branches(name)')
         .eq('organization_id', orgId).order('created_at', { ascending: false }),
       supabase.from('sports').select('*').eq('organization_id', orgId).eq('is_active', true),
       supabase.from('classes').select('*').eq('organization_id', orgId).eq('is_active', true),
+      supabase.from('branches').select('*').eq('organization_id', orgId).eq('is_active', true),
     ])
     setAthletes(a || [])
     setSports(s || [])
     setClasses(c || [])
+    setBranches(br || [])
     setLoading(false)
   }, [supabase])
 
@@ -51,7 +58,8 @@ export default function AthletesPage() {
     const matchSearch = !q || `${a.first_name} ${a.last_name}`.toLowerCase().includes(q) || a.tc.includes(q) || a.phone?.includes(q) || ''
     const matchStatus = !statusFilter || a.status === statusFilter
     const matchSport = !sportFilter || a.sport_id === sportFilter
-    return matchSearch && matchStatus && matchSport
+    const matchBranch = !branchFilter || a.branch_id === branchFilter
+    return matchSearch && matchStatus && matchSport && matchBranch
   })
 
   const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
@@ -65,15 +73,96 @@ export default function AthletesPage() {
     fetchData()
   }
 
+  const provisionAthlete = async (athleteId: string, tc: string) => {
+    const res = await fetch('/api/provision-athlete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ athlete_id: athleteId, tc }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error('Giriş oluşturulamadı: ' + (data.error || '')); return }
+    toast.success(`Giriş oluşturuldu — Kullanıcı: ${tc}@sporcu.tc / Şifre: ${tc.slice(-6)}`)
+    fetchData()
+  }
+
   const handleExport = () => {
-    const csv = [
-      ['Ad', 'Soyad', 'TC', 'Doğum Tarihi', 'Telefon', 'E-posta', 'Durum', 'Kayıt Tarihi'].join(','),
-      ...filtered.map(a => [a.first_name, a.last_name, a.tc, a.birth_date || '', a.phone || '', a.email || '', a.status, a.created_at].join(','))
-    ].join('\n')
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a'); link.href = url; link.download = 'sporcular.csv'; link.click()
-    URL.revokeObjectURL(url)
+    const ws = XLSX.utils.json_to_sheet(filtered.map(a => ({
+      'Ad': a.first_name,
+      'Soyad': a.last_name,
+      'TC Kimlik': a.tc,
+      'Doğum Tarihi': a.birth_date || '',
+      'Cinsiyet': a.gender === 'male' ? 'Erkek' : a.gender === 'female' ? 'Kadın' : '',
+      'Telefon': a.phone || '',
+      'E-posta': a.email || '',
+      'Okul': a.school || '',
+      'Şehir': a.city || '',
+      'Spor Dalı': (a.sport as { name: string } | null)?.name || '',
+      'Sınıf': (a.class as { name: string } | null)?.name || '',
+      'Aylık Ücret': a.monthly_fee || '',
+      'Durum': STATUS_LABELS[a.status] || a.status,
+    })))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Sporcular')
+    XLSX.writeFile(wb, 'sporcular.xlsx')
+  }
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
+        const data = new Uint8Array(ev.target?.result as ArrayBuffer)
+        const wb = XLSX.read(data, { type: 'array', cellDates: true })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws)
+
+        const { data: { user } } = await supabase.auth.getUser()
+        const orgId = user?.user_metadata?.organization_id
+
+        const toInsert = rows
+          .filter(r => r['Ad'] && r['Soyad'])
+          .map(r => {
+            const rawGender = String(r['Cinsiyet'] || '')
+            const rawStatus = String(r['Durum'] || '')
+            const sportName = String(r['Spor Dalı'] || '')
+            const className = String(r['Sınıf'] || '')
+            const birthVal = r['Doğum Tarihi']
+            const birthDate = birthVal instanceof Date
+              ? birthVal.toISOString().slice(0, 10)
+              : birthVal ? String(birthVal).slice(0, 10) : null
+            return {
+              organization_id: orgId,
+              first_name: String(r['Ad']).trim(),
+              last_name: String(r['Soyad']).trim(),
+              tc: r['TC Kimlik'] ? String(r['TC Kimlik']).trim() : '',
+              birth_date: birthDate,
+              gender: rawGender === 'Erkek' ? 'male' : rawGender === 'Kadın' ? 'female' : null,
+              phone: r['Telefon'] ? String(r['Telefon']).trim() : null,
+              email: r['E-posta'] ? String(r['E-posta']).trim() : null,
+              school: r['Okul'] ? String(r['Okul']).trim() : null,
+              city: r['Şehir'] ? String(r['Şehir']).trim() : null,
+              monthly_fee: r['Aylık Ücret'] ? parseFloat(String(r['Aylık Ücret'])) : null,
+              sport_id: sports.find(s => s.name.toLowerCase() === sportName.toLowerCase())?.id || null,
+              class_id: classes.find(c => c.name.toLowerCase() === className.toLowerCase())?.id || null,
+              status: rawStatus === 'Pasif' ? 'inactive' : rawStatus === 'Beklemede' ? 'pending' : 'active',
+            }
+          })
+
+        if (!toInsert.length) { toast.error('İçe aktarılacak geçerli kayıt bulunamadı'); setImporting(false); return }
+
+        const { error } = await supabase.from('athletes').insert(toInsert)
+        if (error) { toast.error('Hata: ' + error.message); setImporting(false); return }
+        toast.success(`${toInsert.length} sporcu içe aktarıldı`)
+        fetchData()
+      } catch {
+        toast.error('Dosya okunamadı. Excel formatını kontrol edin.')
+      }
+      setImporting(false)
+      if (importRef.current) importRef.current.value = ''
+    }
+    reader.readAsArrayBuffer(file)
   }
 
   return (
@@ -84,7 +173,12 @@ export default function AthletesPage() {
           <p className="page-subtitle">{athletes.length} sporcu kayıtlı</p>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn bs btn-sm" onClick={handleExport}><Download size={14} /> CSV</button>
+          <button className="btn bs btn-sm" onClick={handleExport} title="Excel olarak dışa aktar"><Download size={14} /> Excel</button>
+          <button className="btn bs btn-sm" onClick={() => importRef.current?.click()} disabled={importing} title="Excel'den içe aktar">
+            {importing ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={14} />}
+            {importing ? 'İçe Aktarılıyor...' : 'Excel İçe Aktar'}
+          </button>
+          <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: 'none' }} onChange={handleImport} />
           <button className="btn bp" onClick={() => { setEditingAthlete(null); setShowModal(true) }}>
             <Plus size={16} /> Yeni Sporcu
           </button>
@@ -109,6 +203,13 @@ export default function AthletesPage() {
           <option value="">Tüm Spor Dalları</option>
           {sports.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+        {branches.length > 0 && (
+          <select className="form-select" style={{ width: 'auto', minHeight: '40px', padding: '0 12px' }}
+            value={branchFilter} onChange={e => { setBranchFilter(e.target.value); setPage(1) }}>
+            <option value="">Tüm Şubeler</option>
+            {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        )}
       </div>
 
       {/* Table */}
@@ -147,6 +248,9 @@ export default function AthletesPage() {
                       <div>
                         <div style={{ fontWeight: 600 }}>{a.first_name} {a.last_name}</div>
                         <div className="ts text-faint">{a.email || '-'}</div>
+                        <span className={`badge ${a.auth_user_id ? 'badge-green' : 'badge-gray'}`} style={{ fontSize: '10px', marginTop: '2px' }}>
+                          {a.auth_user_id ? 'Giriş Var' : 'Giriş Yok'}
+                        </span>
                       </div>
                     </div>
                   </td>
@@ -161,6 +265,9 @@ export default function AthletesPage() {
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                       <a href={`/athletes/${a.id}`} className="btn bs btn-xs" title="Detay"><Eye size={12} /></a>
                       <button className="btn bs btn-xs" onClick={() => { setEditingAthlete(a); setShowModal(true) }} title="Düzenle"><Edit size={12} /></button>
+                      {!a.auth_user_id && (
+                        <button className="btn bp btn-xs" onClick={() => provisionAthlete(a.id, a.tc)} title="Giriş Oluştur"><Key size={12} /></button>
+                      )}
                       <button className="btn bd btn-xs" onClick={() => setDeleteId(a.id)} title="Sil"><Trash2 size={12} /></button>
                     </div>
                   </td>
@@ -207,6 +314,7 @@ export default function AthletesPage() {
           athlete={editingAthlete}
           sports={sports}
           classes={classes}
+          branches={branches}
           onClose={() => setShowModal(false)}
           onSave={() => { setShowModal(false); fetchData() }}
         />
@@ -216,10 +324,11 @@ export default function AthletesPage() {
 }
 
 // ---- Athlete Form Modal ----
-function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
+function AthleteModal({ athlete, sports, classes, branches, onClose, onSave }: {
   athlete: Athlete | null
   sports: Sport[]
   classes: Class[]
+  branches: Branch[]
   onClose: () => void
   onSave: () => void
 }) {
@@ -238,6 +347,7 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
     city: athlete?.city || '',
     sport_id: athlete?.sport_id || '',
     class_id: athlete?.class_id || '',
+    branch_id: athlete?.branch_id || '',
     category: athlete?.category || '',
     license_number: athlete?.license_number || '',
     monthly_fee: athlete?.monthly_fee?.toString() || '',
@@ -283,6 +393,7 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
       gender: form.gender || null,
       sport_id: form.sport_id || null,
       class_id: form.class_id || null,
+      branch_id: form.branch_id || null,
       birth_date: form.birth_date || null,
       next_payment_date: form.next_payment_date || null,
     }
@@ -291,12 +402,20 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
     if (athlete) {
       ({ error } = await supabase.from('athletes').update(payload).eq('id', athlete.id))
     } else {
-      ({ error } = await supabase.from('athletes').insert(payload))
+      const { data: newAthlete, error: insertError } = await supabase.from('athletes').insert(payload).select('id').single()
+      error = insertError
+      if (!insertError && newAthlete && form.tc.length === 11) {
+        await fetch('/api/provision-athlete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ athlete_id: newAthlete.id, tc: form.tc }),
+        })
+      }
     }
 
     setSaving(false)
     if (error) { toast.error('Hata: ' + error.message); return }
-    toast.success(athlete ? 'Sporcu güncellendi' : 'Sporcu eklendi')
+    toast.success(athlete ? 'Sporcu güncellendi' : 'Sporcu eklendi ve giriş hesabı oluşturuldu')
     onSave()
   }
 
@@ -381,6 +500,13 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                 <select id="class_id" className="form-select" value={form.class_id} onChange={e => set('class_id', e.target.value)}>
                   <option value="">Seçin</option>
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="branch_id">Şube</label>
+                <select id="branch_id" className="form-select" value={form.branch_id} onChange={e => set('branch_id', e.target.value)}>
+                  <option value="">Seçin</option>
+                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
               </div>
               <F id="category" label="Kategori" />

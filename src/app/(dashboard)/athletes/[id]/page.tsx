@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { formatDate, formatCurrency, calculateAge, getInitials } from '@/lib/utils/formatters'
-import { ArrowLeft, Phone, Mail, Loader2 } from 'lucide-react'
+import { ArrowLeft, Phone, Mail, Loader2, FileText, Upload, Trash2, ExternalLink, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 import type { Athlete, Payment } from '@/types'
 
 const STATUS_LABEL: Record<string, string> = { active: 'Aktif', inactive: 'Pasif', pending: 'Beklemede' }
@@ -22,6 +23,15 @@ const DAYS = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 
 type AttRecord = { id: string; date: string; status: string }
 type AthleteWithJoins = Athlete & { sports?: { name: string; icon?: string } | null; classes?: { name: string } | null }
+type DocRecord = { id: string; name: string; type: string; file_url: string | null; expires_at: string | null; notes: string | null; created_at: string }
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  health_report: 'Sağlık Raporu',
+  license: 'Lisans',
+  consent: 'İzin Belgesi',
+  photo: 'Fotoğraf',
+  other: 'Diğer',
+}
 
 export default function AthleteDetailPage() {
   const params = useParams()
@@ -33,23 +43,66 @@ export default function AthleteDetailPage() {
   const [athlete, setAthlete] = useState<AthleteWithJoins | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [attendance, setAttendance] = useState<AttRecord[]>([])
+  const [docs, setDocs] = useState<DocRecord[]>([])
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const docRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!id) return
     const load = async () => {
-      const [{ data: a }, { data: p }, { data: att }] = await Promise.all([
+      const [{ data: a }, { data: p }, { data: att }, { data: d }] = await Promise.all([
         supabase.from('athletes').select('*, sports(name, icon), classes(name, schedule), branches(name)').eq('id', id).single(),
         supabase.from('payments').select('*').eq('athlete_id', id).order('created_at', { ascending: false }).limit(10),
         supabase.from('attendance').select('id, date, status').eq('athlete_id', id).order('date', { ascending: false }).limit(56),
+        supabase.from('athlete_documents').select('*').eq('athlete_id', id).order('created_at', { ascending: false }),
       ])
       if (!a) { router.push('/athletes'); return }
       setAthlete(a as AthleteWithJoins)
       setPayments(p || [])
       setAttendance(att || [])
+      setDocs(d || [])
       setLoading(false)
     }
     load()
   }, [id, supabase, router])
+
+  const loadDocs = async () => {
+    const { data } = await supabase.from('athlete_documents').select('*').eq('athlete_id', id).order('created_at', { ascending: false })
+    setDocs(data || [])
+  }
+
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+    setUploadingDoc(true)
+    const ext = file.name.split('.').pop()
+    const path = `${id}/${Date.now()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('documents').upload(path, file)
+    if (upErr) { toast.error('Yükleme hatası: ' + upErr.message); setUploadingDoc(false); return }
+    const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(path)
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error: insErr } = await supabase.from('athlete_documents').insert({
+      athlete_id: id,
+      organization_id: user?.user_metadata?.organization_id,
+      name: file.name,
+      type: 'other',
+      file_url: publicUrl,
+      file_path: path,
+      uploaded_by: user?.id,
+    })
+    if (insErr) { toast.error('Kayıt hatası: ' + insErr.message); setUploadingDoc(false); return }
+    toast.success('Belge yüklendi')
+    loadDocs()
+    setUploadingDoc(false)
+    if (docRef.current) docRef.current.value = ''
+  }
+
+  const handleDocDelete = async (doc: DocRecord) => {
+    if (doc.file_path) await supabase.storage.from('documents').remove([doc.file_path])
+    await supabase.from('athlete_documents').delete().eq('id', doc.id)
+    toast.success('Belge silindi')
+    loadDocs()
+  }
 
   if (loading) {
     return (
@@ -228,6 +281,51 @@ export default function AthleteDetailPage() {
               Son {attendance.length} yoklama kaydı gösteriliyor
             </div>
           </>
+        )}
+      </div>
+      {/* Belgeler */}
+      <div className="card" style={{ marginTop: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h3 className="m-tit">Belgeler</h3>
+          <button className="btn bs btn-sm" onClick={() => docRef.current?.click()} disabled={uploadingDoc}>
+            {uploadingDoc ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={13} />}
+            {uploadingDoc ? 'Yükleniyor...' : 'Belge Yükle'}
+          </button>
+          <input ref={docRef} type="file" style={{ display: 'none' }} onChange={handleDocUpload} />
+        </div>
+
+        {docs.length === 0 ? (
+          <div className="text-faint ts" style={{ textAlign: 'center', padding: '16px' }}>Henüz belge yüklenmemiş</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {docs.map(doc => {
+              const isExpiringSoon = doc.expires_at && new Date(doc.expires_at) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+              const isExpired = doc.expires_at && new Date(doc.expires_at) < new Date()
+              return (
+                <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg3)', border: `1px solid ${isExpired ? 'var(--red)' : isExpiringSoon ? 'var(--yellow)' : 'var(--border)'}` }}>
+                  <FileText size={16} style={{ color: 'var(--text3)', flexShrink: 0 }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '13px', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text3)', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <span>{DOC_TYPE_LABELS[doc.type] || doc.type}</span>
+                      {doc.expires_at && (
+                        <span style={{ color: isExpired ? 'var(--red)' : isExpiringSoon ? 'var(--yellow)' : 'var(--text3)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          {(isExpired || isExpiringSoon) && <AlertTriangle size={11} />}
+                          {isExpired ? 'Süresi doldu' : `Son: ${formatDate(doc.expires_at)}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {doc.file_url && (
+                      <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="btn bs btn-xs" title="Aç"><ExternalLink size={12} /></a>
+                    )}
+                    <button className="btn bd btn-xs" onClick={() => handleDocDelete(doc)} title="Sil"><Trash2 size={12} /></button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         )}
       </div>
     </DashboardLayout>

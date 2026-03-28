@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   Home, Calendar, ChevronDown, UserPlus, Users, UserCheck,
   Dumbbell, BookOpen, ClipboardCheck, CreditCard, BarChart3,
-  Package, Bell, Settings, LogOut, Sun, Moon,
+  Package, Bell, Settings, LogOut, Sun, Moon, Building2, MessageSquare,
 } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useTheme } from '@/providers/ThemeProvider'
@@ -18,12 +18,14 @@ const AKADEMI_ITEMS = [
   { href: '/sports', label: 'Branşlar', icon: Dumbbell },
   { href: '/classes', label: 'Sınıflar', icon: BookOpen },
   { href: '/attendance', label: 'Devam', icon: ClipboardCheck },
+  { href: '/branches', label: 'Şubeler', icon: Building2 },
 ]
 
 const MUHASEBE_ITEMS = [
   { href: '/payments', label: 'Ödemeler', icon: CreditCard },
   { href: '/reports', label: 'Finans / Rapor', icon: BarChart3 },
   { href: '/inventory', label: 'Envanter', icon: Package },
+  { href: '/messages', label: 'Mesajlar', icon: MessageSquare },
   { href: '/sms', label: 'Bildirimler', icon: Bell },
   { href: '/settings', label: 'Ayarlar', icon: Settings },
 ]

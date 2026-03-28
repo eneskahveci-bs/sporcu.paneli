@@ -75,6 +75,7 @@ export interface Athlete {
   school?: string
   status: AthleteStatus
   notes?: string
+  auth_user_id?: string
   created_at: string
   updated_at: string
   created_by?: string
@@ -100,6 +101,7 @@ export interface Coach {
   salary?: number
   start_date?: string
   status: 'active' | 'inactive'
+  auth_user_id?: string
   created_at: string
   updated_at: string
   // Joins

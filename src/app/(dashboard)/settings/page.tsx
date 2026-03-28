@@ -60,7 +60,7 @@ export default function SettingsPage() {
   }
 
   useEffect(() => {
-    if (tab === 5 && orgId) loadAdmins()
+    if (tab === 4 && orgId) loadAdmins()
   }, [tab, orgId])
 
   const saveOrg = async () => {

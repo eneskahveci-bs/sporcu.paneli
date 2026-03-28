@@ -1,11 +1,20 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeProvider, useTheme } from '@/providers/ThemeProvider'
 import { formatCurrency, formatDate, calculateAge, getInitials } from '@/lib/utils/formatters'
-import { LogOut, Sun, Moon, User, CreditCard, ClipboardCheck, MessageSquare, CheckCircle, X, Minus, Clock } from 'lucide-react'
+import { LogOut, Sun, Moon, User, CreditCard, ClipboardCheck, MessageSquare, CheckCircle, X, Minus, Clock, Loader2, Bell, Upload, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Payment, Attendance } from '@/types'
+
+interface Msg {
+  id: string
+  subject: string
+  content: string
+  sender_name: string
+  is_read: boolean
+  created_at: string
+}
 
 function PortalPage() {
   const supabase = createClient()
@@ -14,7 +23,13 @@ function PortalPage() {
   const [athlete, setAthlete] = useState<Record<string, unknown> | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [attendance, setAttendance] = useState<Attendance[]>([])
+  const [messages, setMessages] = useState<Msg[]>([])
   const [loading, setLoading] = useState(true)
+  const [notifyingId, setNotifyingId] = useState<string | null>(null)
+  const [expandedMsg, setExpandedMsg] = useState<string | null>(null)
+  const [notifyModalPayment, setNotifyModalPayment] = useState<Payment | null>(null)
+  const [slipFile, setSlipFile] = useState<File | null>(null)
+  const slipRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -24,20 +39,66 @@ function PortalPage() {
       const athleteId = user.user_metadata?.athlete_id
       if (!athleteId) { window.location.href = '/login'; return }
 
-      const [{ data: a }, { data: p }, { data: att }] = await Promise.all([
+      const [{ data: a }, { data: p }, { data: att }, { data: msgs }] = await Promise.all([
         supabase.from('athletes').select('*, sports(name), classes(name)').eq('id', athleteId).single(),
         supabase.from('payments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
         supabase.from('attendance').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }).limit(60),
+        supabase.from('messages').select('*').eq('receiver_id', user.id).order('created_at', { ascending: false }),
       ])
       setAthlete(a)
       setPayments(p || [])
       setAttendance(att || [])
+      setMessages(msgs || [])
       setLoading(false)
     }
     load()
   }, [supabase])
 
-  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/login' }
+  const signOut = async () => { await supabase.auth.signOut(); window.location.href = '/' }
+
+  const markRead = async (msgId: string) => {
+    await supabase.from('messages').update({ is_read: true }).eq('id', msgId)
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_read: true } : m))
+  }
+
+  const sendPaymentNotification = async (p: Payment, file: File | null) => {
+    if (!athlete) return
+    setNotifyingId(p.id)
+    const { data: { user } } = await supabase.auth.getUser()
+    const orgId = user?.user_metadata?.organization_id
+
+    let slipUrl: string | null = null
+    if (file) {
+      const ext = file.name.split('.').pop()
+      const path = `slips/${p.athlete_id}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, file)
+      if (!upErr) {
+        const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(path)
+        slipUrl = publicUrl
+      }
+    }
+
+    const { error } = await supabase.from('payments').insert({
+      organization_id: orgId,
+      athlete_id: p.athlete_id,
+      athlete_name: `${athlete.first_name} ${athlete.last_name}`,
+      amount: p.amount,
+      type: 'income',
+      category: p.category || 'Aidat',
+      description: (p.description || p.category || 'Aidat') + ' — Veli Bildirimi',
+      status: 'pending',
+      source: 'parent_notification',
+      notification_status: 'pending_approval',
+      due_date: p.due_date,
+      method: 'bank_transfer',
+      slip_url: slipUrl,
+    })
+    setNotifyingId(null)
+    if (error) { toast.error('Bildirim gönderilemedi: ' + error.message); return }
+    toast.success('Ödeme bildirimi gönderildi. Admin onayı bekleniyor.')
+    setNotifyModalPayment(null)
+    setSlipFile(null)
+  }
 
   if (loading) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
@@ -52,6 +113,7 @@ function PortalPage() {
 
   const totalDebt = payments.filter(p => p.status === 'overdue' || p.status === 'pending').reduce((s, p) => s + p.amount, 0)
   const attendanceRate = attendance.length ? Math.round((attendance.filter(a => a.status === 'present').length / attendance.length) * 100) : 0
+  const unreadCount = messages.filter(m => !m.is_read).length
 
   const STATUS_ICON: Record<string, React.ReactNode> = {
     present: <CheckCircle size={14} color="var(--green)" />,
@@ -65,6 +127,13 @@ function PortalPage() {
 
   const firstName = athlete.first_name as string
   const lastName = athlete.last_name as string
+
+  const TABS = [
+    { label: 'Profilim', icon: <User size={14} /> },
+    { label: 'Ödemeler', icon: <CreditCard size={14} /> },
+    { label: 'Yoklama', icon: <ClipboardCheck size={14} /> },
+    { label: 'Mesajlar', icon: <MessageSquare size={14} />, badge: unreadCount },
+  ]
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -98,13 +167,13 @@ function PortalPage() {
 
         {/* Tabs */}
         <div className="tabs" style={{ marginBottom: '20px' }}>
-          {[
-            { label: 'Profilim', icon: <User size={14} /> },
-            { label: 'Ödemeler', icon: <CreditCard size={14} /> },
-            { label: 'Yoklama', icon: <ClipboardCheck size={14} /> },
-          ].map((t, i) => (
-            <button key={t.label} className={`tab-btn${tab === i ? ' active' : ''}`} onClick={() => setTab(i)}>
+          {TABS.map((t, i) => (
+            <button key={t.label} className={`tab-btn${tab === i ? ' active' : ''}`} onClick={() => setTab(i)}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', position: 'relative' }}>
               {t.icon} {t.label}
+              {t.badge && t.badge > 0 && (
+                <span style={{ background: 'var(--red)', color: '#fff', borderRadius: '10px', padding: '0 5px', fontSize: '10px', fontWeight: 700, minWidth: '16px', textAlign: 'center' }}>{t.badge}</span>
+              )}
             </button>
           ))}
         </div>
@@ -158,15 +227,34 @@ function PortalPage() {
               <div className="empty-state card"><div className="empty-state-icon">💳</div><div className="empty-state-title">Ödeme kaydı yok</div></div>
             )}
             {payments.map(p => (
-              <div key={p.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: `4px solid ${p.status === 'completed' ? 'var(--green)' : p.status === 'overdue' ? 'var(--red)' : 'var(--yellow)'}` }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{p.description || p.category || 'Aidat'}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>Son tarih: {formatDate(p.due_date)}</div>
+              <div key={p.id} className="card" style={{ borderLeft: `4px solid ${p.status === 'completed' ? 'var(--green)' : p.status === 'overdue' ? 'var(--red)' : 'var(--yellow)'}` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>{p.description || p.category || 'Aidat'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>Son tarih: {formatDate(p.due_date)}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: '16px' }}>{formatCurrency(p.amount)}</div>
+                    <span className={`badge ${PAY_BADGE[p.status]}`} style={{ fontSize: '11px', marginTop: '4px' }}>{PAY_LABEL[p.status]}</span>
+                  </div>
                 </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 700, fontSize: '16px' }}>{formatCurrency(p.amount)}</div>
-                  <span className={`badge ${PAY_BADGE[p.status]}`} style={{ fontSize: '11px', marginTop: '4px' }}>{PAY_LABEL[p.status]}</span>
-                </div>
+                {(p.status === 'pending' || p.status === 'overdue') && p.notification_status !== 'pending_approval' && (
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+                    <button
+                      className="btn bp btn-sm"
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontSize: '12px' }}
+                      onClick={() => { setNotifyModalPayment(p); setSlipFile(null) }}
+                    >
+                      <Bell size={12} />
+                      Ödedim — Bildirim Gönder
+                    </button>
+                  </div>
+                )}
+                {p.notification_status === 'pending_approval' && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <Clock size={12} /> Bildiriminiz onay bekliyor...
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -193,7 +281,82 @@ function PortalPage() {
             </div>
           </div>
         )}
+
+        {/* Messages Tab */}
+        {tab === 3 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {messages.length === 0 && (
+              <div className="empty-state card">
+                <div className="empty-state-icon">💬</div>
+                <div className="empty-state-title">Mesaj yok</div>
+                <div className="empty-state-text" style={{ fontSize: '13px', color: 'var(--text3)' }}>Antrenörünüzden veya akademiden mesaj geldiğinde burada görünür</div>
+              </div>
+            )}
+            {messages.map(m => (
+              <div key={m.id} className="card"
+                style={{ borderLeft: `3px solid ${m.is_read ? 'var(--border)' : 'var(--blue2)'}`, cursor: 'pointer', opacity: m.is_read ? 0.85 : 1 }}
+                onClick={() => {
+                  setExpandedMsg(expandedMsg === m.id ? null : m.id)
+                  if (!m.is_read) markRead(m.id)
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                      {!m.is_read && <span style={{ width: '8px', height: '8px', background: 'var(--blue2)', borderRadius: '50%', flexShrink: 0 }} />}
+                      <div style={{ fontWeight: m.is_read ? 500 : 700, fontSize: '14px' }}>{m.subject || '(Konu yok)'}</div>
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text3)' }}>
+                      {m.sender_name} • {formatDate(m.created_at?.slice(0, 10))}
+                    </div>
+                  </div>
+                </div>
+                {expandedMsg === m.id && (
+                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)', fontSize: '14px', color: 'var(--text2)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {m.content}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* Dekont Yükleme Modalı */}
+      {notifyModalPayment && (
+        <div className="modal-overlay" onClick={() => setNotifyModalPayment(null)}>
+          <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Ödeme Bildirimi</h2>
+              <button onClick={() => setNotifyModalPayment(null)} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: '20px' }}>×</button>
+            </div>
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ padding: '12px 14px', background: 'var(--bg3)', borderRadius: '8px', fontSize: '14px' }}>
+                <div style={{ fontWeight: 600 }}>{notifyModalPayment.description || notifyModalPayment.category || 'Aidat'}</div>
+                <div style={{ color: 'var(--text3)', fontSize: '13px', marginTop: '4px' }}>Tutar: {formatCurrency(notifyModalPayment.amount)}</div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Dekont (İsteğe bağlı)</label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button className="btn bs btn-sm" onClick={() => slipRef.current?.click()}>
+                    <Upload size={13} /> Dosya Seç
+                  </button>
+                  {slipFile && <span style={{ fontSize: '12px', color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: '4px' }}><Paperclip size={12} />{slipFile.name}</span>}
+                </div>
+                <input ref={slipRef} type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => setSlipFile(e.target.files?.[0] || null)} />
+                <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '6px' }}>Varsa banka dekontunuzu yükleyebilirsiniz</div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn bs" onClick={() => setNotifyModalPayment(null)}>İptal</button>
+              <button className="btn bp" disabled={!!notifyingId} onClick={() => sendPaymentNotification(notifyModalPayment, slipFile)}>
+                {notifyingId ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Bell size={14} />}
+                {notifyingId ? 'Gönderiliyor...' : 'Bildirim Gönder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
