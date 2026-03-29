@@ -28,7 +28,7 @@ export default function LoginPage() {
     if (tab !== 'admin') {
       if (!tc || tc.length !== 11) { setError('TC Kimlik No 11 haneli olmalıdır'); return }
       if (!validateTC(tc)) { setError('Geçersiz TC Kimlik No'); return }
-      if (!password || password.length !== 6) { setError('Şifre TC\'nin son 6 hanesi (6 karakter)'); return }
+      if (!password || password.length < 6) { setError('Şifre en az 6 karakter olmalıdır'); return }
     } else {
       if (!email || !password) { setError('E-posta ve şifre gereklidir'); return }
     }
@@ -111,15 +111,14 @@ export default function LoginPage() {
                   />
                 </div>
                 <div className="fg">
-                  <label className="fl">Şifre <span className="fh">(TC&apos;nin son 6 hanesi)</span></label>
+                  <label className="fl">Şifre</label>
                   <div className="pw-wrap">
                     <input
                       className="fi"
                       type={showPw ? 'text' : 'password'}
-                      placeholder="Son 6 hane"
+                      placeholder="Şifreniz"
                       value={password}
-                      onChange={e => setPassword(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      maxLength={6}
+                      onChange={e => setPassword(e.target.value)}
                     />
                     <button type="button" className="pw-eye" onClick={() => setShowPw(p => !p)}>
                       {showPw ? <EyeOff size={15} /> : <Eye size={15} />}

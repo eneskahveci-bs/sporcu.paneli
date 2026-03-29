@@ -81,8 +81,20 @@ export default function AthletesPage() {
     })
     const data = await res.json()
     if (!res.ok) { toast.error('Giriş oluşturulamadı: ' + (data.error || '')); return }
-    toast.success(`Giriş oluşturuldu — Kullanıcı: ${tc}@sporcu.tc / Şifre: ${tc.slice(-6)}`)
+    toast.success(`Giriş oluşturuldu — Kullanıcı adı: ${tc} / İlk şifre: ${tc} (ilk girişte değiştirilecek)`)
     fetchData()
+  }
+
+  const resetAthletePassword = async (athleteId: string, name: string) => {
+    if (!confirm(`${name} şifresi TC numarasına sıfırlanacak. Emin misiniz?`)) return
+    const res = await fetch('/api/reset-user-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'athlete', id: athleteId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error || 'Şifre sıfırlanamadı'); return }
+    toast.success(data.message || 'Şifre başarıyla sıfırlandı')
   }
 
   const handleExport = () => {
@@ -267,6 +279,9 @@ export default function AthletesPage() {
                       <button className="btn bs btn-xs" onClick={() => { setEditingAthlete(a); setShowModal(true) }} title="Düzenle"><Edit size={12} /></button>
                       {!a.auth_user_id && (
                         <button className="btn bp btn-xs" onClick={() => provisionAthlete(a.id, a.tc)} title="Giriş Oluştur"><Key size={12} /></button>
+                      )}
+                      {a.auth_user_id && (
+                        <button className="btn bs btn-xs" onClick={() => resetAthletePassword(a.id, `${a.first_name} ${a.last_name}`)} title="Şifre Sıfırla"><Key size={12} /></button>
                       )}
                       <button className="btn bd btn-xs" onClick={() => setDeleteId(a.id)} title="Sil"><Trash2 size={12} /></button>
                     </div>

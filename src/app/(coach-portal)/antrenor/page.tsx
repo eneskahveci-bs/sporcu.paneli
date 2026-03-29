@@ -6,7 +6,7 @@ import { ThemeProvider, useTheme } from '@/providers/ThemeProvider'
 import {
   LogOut, Sun, Moon, Calendar, Users, ClipboardCheck,
   User, Check, X, Minus, Save, Loader2, Clock, ChevronLeft, ChevronRight,
-  MessageSquare, Send,
+  MessageSquare, Send, Eye, EyeOff, KeyRound,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, getInitials } from '@/lib/utils/formatters'
@@ -41,6 +41,7 @@ function CoachPortal() {
   const { theme, toggleTheme } = useTheme()
 
   const [loading, setLoading] = useState(true)
+  const [mustSetPassword, setMustSetPassword] = useState(false)
   const [coach, setCoach] = useState<Record<string, unknown> | null>(null)
   const [classes, setClasses] = useState<Class[]>([])
   const [athletesByClass, setAthletesByClass] = useState<Record<string, Athlete[]>>({})
@@ -68,6 +69,13 @@ function CoachPortal() {
   const load = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { window.location.href = '/'; return }
+
+    // İlk giriş kontrolü
+    if (user.user_metadata?.must_change_password === true) {
+      setMustSetPassword(true)
+      setLoading(false)
+      return
+    }
 
     const orgId = user.user_metadata?.organization_id
     const coachId = user.user_metadata?.coach_id
@@ -204,6 +212,8 @@ function CoachPortal() {
       </div>
     )
   }
+
+  if (mustSetPassword) return <SetPasswordScreenCoach onDone={() => { setMustSetPassword(false); window.location.reload() }} />
 
   if (!coach) {
     return (
@@ -619,12 +629,86 @@ function CoachPortal() {
               ))}
             </dl>
             <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)', fontSize: '13px', color: 'var(--text3)' }}>
-              Giriş: <strong style={{ color: 'var(--text2)' }}>{coach.tc ? `${coach.tc}@antrenor.tc` : '-'}</strong>
-              &nbsp;/&nbsp;Şifre: <strong style={{ color: 'var(--text2)' }}>TC son 6 hane</strong>
+              Kullanıcı Adı: <strong style={{ color: 'var(--text2)' }}>{coach.tc ? `${coach.tc}@antrenor.tc` : '-'}</strong>
             </div>
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ─── Antrenör İlk Giriş Şifre Belirleme ────────────────────────────────────
+function SetPasswordScreenCoach({ onDone }: { onDone: () => void }) {
+  const supabase = createClient()
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [showPw, setShowPw] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (newPw.length < 8) { setError('Şifre en az 8 karakter olmalıdır'); return }
+    if (newPw !== confirmPw) { setError('Şifreler eşleşmiyor'); return }
+    setLoading(true)
+    try {
+      const { error: pwErr } = await supabase.auth.updateUser({ password: newPw })
+      if (pwErr) { setError(pwErr.message); return }
+      await supabase.auth.updateUser({ data: { must_change_password: false } })
+      toast.success('Şifreniz başarıyla belirlendi!')
+      onDone()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '1rem' }}>
+      <div style={{ width: '100%', maxWidth: '420px', background: 'var(--bg2)', border: '1px solid var(--border2)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+        <div style={{ padding: '2rem 2rem 0', textAlign: 'center' }}>
+          <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'var(--grad)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+            <KeyRound size={24} color="#fff" />
+          </div>
+          <h2 style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--text)', marginBottom: '0.5rem' }}>Şifrenizi Belirleyin</h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text3)', lineHeight: 1.6 }}>İlk girişiniz! Güvenliğiniz için lütfen kendinize özel bir şifre belirleyin.</p>
+        </div>
+        <form onSubmit={handleSubmit} style={{ padding: '1.5rem 2rem 2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text2)' }}>Yeni Şifre</label>
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPw ? 'text' : 'password'}
+                placeholder="En az 8 karakter"
+                value={newPw}
+                onChange={e => setNewPw(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '0.75rem 2.75rem 0.75rem 1rem', background: 'var(--bg)', border: '1px solid var(--border2)', borderRadius: 'var(--radius-sm)', fontSize: '0.9375rem', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+              />
+              <button type="button" onClick={() => setShowPw(p => !p)} style={{ position: 'absolute', right: '0.875rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}>
+                {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text2)' }}>Şifre Tekrar</label>
+            <input
+              type={showPw ? 'text' : 'password'}
+              placeholder="Şifreyi tekrar girin"
+              value={confirmPw}
+              onChange={e => setConfirmPw(e.target.value)}
+              style={{ width: '100%', padding: '0.75rem 1rem', background: 'var(--bg)', border: '1px solid var(--border2)', borderRadius: 'var(--radius-sm)', fontSize: '0.9375rem', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+            />
+          </div>
+          {error && <div style={{ fontSize: '0.8125rem', color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', padding: '0.625rem 0.875rem', borderRadius: 'var(--radius-sm)' }}>{error}</div>}
+          <button type="submit" disabled={loading} style={{ padding: '0.875rem', background: 'var(--grad)', color: '#fff', border: 'none', borderRadius: 'var(--radius-sm)', fontSize: '1rem', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : null}
+            {loading ? 'Kaydediliyor...' : 'Şifremi Belirle'}
+          </button>
+        </form>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   )
 }

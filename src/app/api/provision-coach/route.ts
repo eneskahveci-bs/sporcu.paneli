@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { sendWelcomeEmail } from '@/lib/email'
 
 // Antrenör için auth kullanıcısı oluşturur (admin yetkisi gerekir)
-// Email: {tc}@antrenor.tc | Şifre: TC'nin son 6 hanesi
+// Email: {tc}@antrenor.tc | İlk Şifre: TC'nin kendisi (11 hane) | must_change_password: true
 export async function POST(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,44 +34,49 @@ export async function POST(request: Request) {
   }
 
   const email = `${tc}@antrenor.tc`
-  const password = tc.slice(-6)
+  const password = tc
   const fullName = coach ? `${coach.first_name} ${coach.last_name}` : ''
+  const metadata = { role: 'coach', organization_id, coach_id, full_name: fullName, must_change_password: true }
 
-  const { data: existing } = await admin.auth.admin.getUserByEmail(email)
-
+  // Önce oluşturmayı dene; zaten varsa güncelle
   let userId: string
+  const { data: newUser, error: createErr } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: metadata,
+  })
 
-  if (existing?.user) {
-    const { error } = await admin.auth.admin.updateUserById(existing.user.id, {
-      user_metadata: { role: 'coach', organization_id, coach_id, full_name: fullName },
-    })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    userId = existing.user.id
+  if (createErr) {
+    if (createErr.message?.toLowerCase().includes('already') || createErr.status === 422) {
+      const { data: { users }, error: listErr } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      if (listErr) return NextResponse.json({ error: listErr.message }, { status: 500 })
+      const existing = users.find(u => u.email === email)
+      if (!existing) return NextResponse.json({ error: 'Kullanıcı bulunamadı' }, { status: 500 })
+      const { error: updErr } = await admin.auth.admin.updateUserById(existing.id, { password, user_metadata: metadata })
+      if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+      userId = existing.id
+    } else {
+      return NextResponse.json({ error: createErr.message }, { status: 500 })
+    }
   } else {
-    const { data: newUser, error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { role: 'coach', organization_id, coach_id, full_name: fullName },
-    })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     userId = newUser.user.id
   }
 
   await admin.from('coaches').update({ auth_user_id: userId }).eq('id', coach_id)
 
-  // Hoş geldin e-postası gönder
+  // Hoş geldin e-postası
   const { data: org } = await admin.from('organizations').select('name').eq('id', organization_id).single()
   if (coach?.email) {
     await sendWelcomeEmail({
       toEmail: coach.email,
       fullName,
       loginEmail: email,
-      loginPassword: password,
+      loginPassword: '(TC kimlik numaranız)',
       orgName: org?.name || 'Spor Akademisi',
       role: 'coach',
     })
   }
 
-  return NextResponse.json({ success: true, user_id: userId, email, password_hint: `TC son 6 hane: ${password}` })
+  return NextResponse.json({ success: true, user_id: userId, email, note: 'İlk şifre TC numarasıdır. Kullanıcı ilk girişte şifresini belirleyecek.' })
 }

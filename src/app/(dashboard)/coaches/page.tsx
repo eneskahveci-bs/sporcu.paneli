@@ -49,8 +49,20 @@ export default function CoachesPage() {
     })
     const data = await res.json()
     if (!res.ok) { toast.error('Giriş oluşturulamadı: ' + (data.error || '')); return }
-    toast.success(`Giriş oluşturuldu — Kullanıcı: ${tc}@antrenor.tc / Şifre: ${tc.slice(-6)}`)
+    toast.success(`Giriş oluşturuldu — Kullanıcı adı: ${tc} / İlk şifre: ${tc} (ilk girişte değiştirilecek)`)
     fetch()
+  }
+
+  const resetCoachPassword = async (coachId: string, name: string) => {
+    if (!confirm(`${name} şifresi TC numarasına sıfırlanacak. Emin misiniz?`)) return
+    const res = await window.fetch('/api/reset-user-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'coach', id: coachId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error || 'Şifre sıfırlanamadı'); return }
+    toast.success(data.message || 'Şifre başarıyla sıfırlandı')
   }
 
   const handleDelete = async (id: string) => {
@@ -117,6 +129,9 @@ export default function CoachesPage() {
                 <button className="btn bs btn-sm" style={{ flex: 1 }} onClick={() => { setEditing(c); setShowModal(true) }}><Edit size={13} /> Düzenle</button>
                 {!c.auth_user_id && c.tc && (
                   <button className="btn bp btn-sm" onClick={() => provisionCoach(c.id, c.tc!)} title="Giriş Oluştur"><Key size={13} /></button>
+                )}
+                {c.auth_user_id && (
+                  <button className="btn bs btn-sm" onClick={() => resetCoachPassword(c.id, `${c.first_name} ${c.last_name}`)} title="Şifre Sıfırla"><Key size={13} /></button>
                 )}
                 <button className="btn bd btn-sm" onClick={() => setDeleteId(c.id)}><Trash2 size={13} /></button>
               </div>
