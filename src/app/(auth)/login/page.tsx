@@ -51,6 +51,8 @@ export default function LoginPage() {
         router.push('/portal')
       } else if (role === 'coach') {
         router.push('/antrenor')
+      } else if (role === 'superadmin') {
+        router.push('/superadmin')
       } else {
         router.push('/dashboard')
       }

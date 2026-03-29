@@ -81,11 +81,24 @@ function RegisterPage() {
       })
 
       if (signUpError) {
-        // Org'u geri al
         await supabase.from('organizations').delete().eq('id', org.id)
         toast.error(signUpError.message)
         return
       }
+
+      // 3. Trial abonelik oluştur (14 gün)
+      const trialEnd = new Date()
+      trialEnd.setDate(trialEnd.getDate() + 14)
+      await supabase.from('subscriptions').insert({
+        organization_id: org.id,
+        plan: 'trial',
+        status: 'trial',
+        price_monthly: 0,
+        max_athletes: 30,
+        max_branches: 1,
+        trial_ends_at: trialEnd.toISOString(),
+        current_period_end: trialEnd.toISOString(),
+      })
 
       toast.success('Hesabınız oluşturuldu! E-postanızı doğrulayın.')
       router.push('/login')

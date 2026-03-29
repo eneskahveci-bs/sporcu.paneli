@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Save, Loader2, Building2, Bell, Shield, CreditCard, Upload, Users, Trash2, Plus } from 'lucide-react'
+import { Save, Loader2, Building2, Bell, Shield, CreditCard, Upload, Users, Trash2, Plus, Package2 } from 'lucide-react'
+import { PLAN_CONFIG, STATUS_CONFIG, type SubscriptionPlan, type SubscriptionStatus } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const [addingAdmin, setAddingAdmin] = useState(false)
   const [currentUserId, setCurrentUserId] = useState('')
   const [orgId, setOrgId] = useState('')
+  const [subscription, setSubscription] = useState<{ plan: string; status: string; price_monthly: number; current_period_end?: string; trial_ends_at?: string; max_athletes: number; max_branches: number } | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -28,15 +30,17 @@ export default function SettingsPage() {
       const oid = user?.user_metadata?.organization_id
       setOrgId(oid || '')
       setCurrentUserId(user?.id || '')
-      const [{ data: orgData }, { data: settings }] = await Promise.all([
+      const [{ data: orgData }, { data: settings }, { data: subData }] = await Promise.all([
         supabase.from('organizations').select('*').eq('id', oid).single(),
         supabase.from('settings').select('*').eq('organization_id', oid),
+        supabase.from('subscriptions').select('*').eq('organization_id', oid).single(),
       ])
       if (orgData) setOrg({
         name: orgData.name || '', phone: orgData.phone || '', email: orgData.email || '',
         address: orgData.address || '', city: orgData.city || '', logo: orgData.logo || '',
         bank_name: orgData.bank_name || '', account_name: orgData.account_name || '', iban: orgData.iban || '',
       })
+      if (subData) setSubscription(subData)
       if (settings) {
         const get = (key: string) => settings.find((s: { key: string; value: string }) => s.key === key)?.value || ''
         setSms({ netgsm_api_key: get('netgsm_api_key'), netgsm_sender_id: get('netgsm_sender_id') })
@@ -150,6 +154,7 @@ export default function SettingsPage() {
     { label: 'WhatsApp', icon: <Bell size={15} /> },
     { label: 'PayTR Ödeme', icon: <CreditCard size={15} /> },
     { label: 'Yöneticiler', icon: <Users size={15} /> },
+    { label: 'Abonelik', icon: <Package2 size={15} /> },
   ]
 
   const F = ({ label, id, value, onChange, type = 'text', placeholder }: { label: string; id: string; value: string; onChange: (v: string) => void; type?: string; placeholder?: string }) => (
@@ -348,6 +353,53 @@ export default function SettingsPage() {
                       ))}
                     </div>
                   )}
+                </>
+              )}
+
+              {/* Abonelik */}
+              {tab === 5 && (
+                <>
+                  <h3 className="m-tit" style={{ marginBottom: 20 }}>Abonelik Bilgileri</h3>
+                  {!subscription ? (
+                    <div style={{ color: 'var(--text3)', fontSize: 14 }}>Abonelik bilgisi bulunamadı.</div>
+                  ) : (() => {
+                    const plan = subscription.plan as SubscriptionPlan
+                    const status = subscription.status as SubscriptionStatus
+                    const planCfg = PLAN_CONFIG[plan] || PLAN_CONFIG.trial
+                    const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.trial
+                    const endDate = subscription.current_period_end || subscription.trial_ends_at
+                    const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000) : null
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: 150, background: 'var(--bg3)', borderRadius: 10, padding: '16px 20px', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' as const }}>Plan</div>
+                            <div style={{ fontWeight: 800, fontSize: 20, color: planCfg.color }}>{planCfg.name}</div>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 150, background: 'var(--bg3)', borderRadius: 10, padding: '16px 20px', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' as const }}>Durum</div>
+                            <span className={`badge ${statusCfg.badge}`}>{statusCfg.label}</span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 150, background: 'var(--bg3)', borderRadius: 10, padding: '16px 20px', border: '1px solid var(--border)' }}>
+                            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6, fontWeight: 600, textTransform: 'uppercase' as const }}>Aylık</div>
+                            <div style={{ fontWeight: 800, fontSize: 20 }}>{subscription.price_monthly > 0 ? `₺${subscription.price_monthly.toLocaleString('tr-TR')}` : 'Ücretsiz'}</div>
+                          </div>
+                        </div>
+                        {endDate && (
+                          <div style={{ padding: '14px 18px', background: daysLeft !== null && daysLeft <= 7 ? 'rgba(245,158,11,0.1)' : 'var(--bg3)', border: `1px solid ${daysLeft !== null && daysLeft <= 7 ? '#f59e0b40' : 'var(--border)'}`, borderRadius: 10 }}>
+                            <span style={{ fontSize: 13, color: 'var(--text2)' }}>
+                              {status === 'trial' ? '⏰ Deneme bitiyor: ' : '📅 Dönem bitiyor: '}
+                              <strong>{new Date(endDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>
+                              {daysLeft !== null && <span style={{ marginLeft: 8, color: daysLeft <= 3 ? '#ef4444' : daysLeft <= 7 ? '#f59e0b' : 'var(--text3)', fontWeight: 600 }}>({daysLeft} gün kaldı)</span>}
+                            </span>
+                          </div>
+                        )}
+                        <div style={{ fontSize: 13, color: 'var(--text3)', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                          Plan değişikliği için: <a href="mailto:eneskahveci.bs@gmail.com" style={{ color: 'var(--blue2)', textDecoration: 'none' }}>eneskahveci.bs@gmail.com</a>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </>
               )}
             </div>
