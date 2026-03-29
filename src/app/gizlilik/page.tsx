@@ -1,6 +1,13 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'Gizlilik Politikası | Sporcu Paneli' }
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Gizlilik Politikası',
+  description: 'Sporcu Paneli gizlilik politikası — verilerinizin nasıl toplandığı, kullanıldığı ve korunduğu hakkında bilgi.',
+  alternates: { canonical: '/gizlilik' },
+  robots: { index: true, follow: false },
+}
 
 const LEGAL_STYLES = `
   .legal-page { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; }

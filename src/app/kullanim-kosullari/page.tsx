@@ -1,6 +1,13 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'Kullanım Koşulları | Sporcu Paneli' }
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'Kullanım Koşulları',
+  description: 'Sporcu Paneli kullanım koşulları — platform kullanımı, abonelik, iade ve veri sahipliği hakkında.',
+  alternates: { canonical: '/kullanim-kosullari' },
+  robots: { index: true, follow: false },
+}
 
 const LEGAL_STYLES = `
   .legal-page { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; }

@@ -1,6 +1,13 @@
 import Link from 'next/link'
 
-export const metadata = { title: 'KVKK Aydınlatma Metni | Sporcu Paneli' }
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'KVKK Aydınlatma Metni',
+  description: '6698 sayılı Kişisel Verilerin Korunması Kanunu kapsamında Sporcu Paneli kişisel veri işleme aydınlatma metni.',
+  alternates: { canonical: '/kvkk' },
+  robots: { index: true, follow: false },
+}
 
 const LEGAL_STYLES = `
   .legal-page { min-height: 100vh; background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, sans-serif; }
