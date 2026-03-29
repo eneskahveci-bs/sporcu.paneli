@@ -20,6 +20,7 @@ function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [cooldown, setCooldown] = useState(0)
 
   const validate = () => {
     const errs: Record<string, string> = {}
@@ -35,9 +36,19 @@ function LoginPage() {
     return Object.keys(errs).length === 0
   }
 
+  const startCooldown = () => {
+    setCooldown(30)
+    const iv = setInterval(() => {
+      setCooldown(prev => {
+        if (prev <= 1) { clearInterval(iv); return 0 }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate()) return
+    if (!validate() || cooldown > 0) return
     setLoading(true)
 
     try {
@@ -60,6 +71,7 @@ function LoginPage() {
         } else {
           toast.error(result.error.message)
         }
+        startCooldown()
         return
       }
 
@@ -68,6 +80,7 @@ function LoginPage() {
       router.refresh()
     } catch {
       toast.error('Bir hata oluştu. Lütfen tekrar deneyin.')
+      startCooldown()
     } finally {
       setLoading(false)
     }
@@ -182,11 +195,11 @@ function LoginPage() {
           <button
             type="submit"
             className="btn bp"
-            disabled={loading}
+            disabled={loading || cooldown > 0}
             style={{ width: '100%', height: '44px', fontSize: '15px' }}
           >
             {loading ? <Loader2 size={18} className="animate-spin" /> : null}
-            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+            {loading ? 'Giriş yapılıyor...' : cooldown > 0 ? `Tekrar dene (${cooldown}s)` : 'Giriş Yap'}
           </button>
         </form>
 

@@ -67,6 +67,8 @@ export async function POST(request: Request) {
   }
 
   // 2. Create auth user (TC@sporcu.tc / last 6 digits)
+  // ⚠️ GÜVENLİK UYARISI: Varsayılan şifre zayıftır (TC son 6 hane).
+  // Kullanıcı ilk girişte şifre değiştirmeye zorlanmalıdır.
   const password = tc.slice(-6)
   const { error: authError } = await adminSupabase.auth.admin.createUser({
     email: `${tc}@sporcu.tc`,
@@ -77,6 +79,7 @@ export async function POST(request: Request) {
       organization_id,
       athlete_id: athlete.id,
       full_name: `${first_name} ${last_name}`,
+      requiresPasswordChange: true, // İlk girişte şifre değiştirme bayrağı
     },
   })
 

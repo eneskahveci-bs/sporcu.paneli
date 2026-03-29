@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Filter, Download, Upload, Eye, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Search, Download, Eye, Edit, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatCurrency, calculateAge, getInitials } from '@/lib/utils/formatters'
 import { validateTC } from '@/lib/utils/tc-validation'
@@ -42,9 +42,9 @@ export default function AthletesPage() {
     setSports(s || [])
     setClasses(c || [])
     setLoading(false)
-  }, [supabase])
+  }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchData() }, [])
 
   const filtered = athletes.filter(a => {
     const q = search.toLowerCase()
@@ -301,11 +301,23 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
   }
 
   const tabs = ['Kişisel', 'Akademik', 'Finansal', 'Veli', 'Sağlık']
-  const F = ({ id, label, type = 'text', req, colSpan }: { id: string; label: string; type?: string; req?: boolean; colSpan?: boolean }) => (
+
+  const renderFormField = (id: string, label: string, type = 'text', req = false, colSpan = false) => (
     <div className="form-group" style={colSpan ? { gridColumn: '1 / -1' } : {}}>
       <label className={`form-label${req ? ' required' : ''}`} htmlFor={id}>{label}</label>
       <input id={id} type={type} className={`form-input${errors[id] ? ' error' : ''}`}
         value={(form as Record<string, string>)[id]} onChange={e => set(id, e.target.value)} aria-required={req} />
+      {errors[id] && <div className="form-error">{errors[id]}</div>}
+    </div>
+  )
+
+  const renderSelectField = (id: string, label: string, options: { value: string; label: string }[], req = false, colSpan = false) => (
+    <div className="form-group" style={colSpan ? { gridColumn: '1 / -1' } : {}}>
+      <label className={`form-label${req ? ' required' : ''}`} htmlFor={id}>{label}</label>
+      <select id={id} className={`form-input${errors[id] ? ' error' : ''}`} value={(form as Record<string, string>)[id]} onChange={e => set(id, e.target.value)} aria-required={req}>
+        <option value="">Seçin</option>
+        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+      </select>
       {errors[id] && <div className="form-error">{errors[id]}</div>}
     </div>
   )
@@ -329,8 +341,8 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
         <div className="modal-body">
           {tab === 0 && (
             <div className="grid-2">
-              <F id="first_name" label="Ad" req />
-              <F id="last_name" label="Soyad" req />
+              {renderFormField("first_name", "Ad", "text", true)}
+              {renderFormField("last_name", "Soyad", "text", true)}
               <div className="form-group">
                 <label className="form-label required" htmlFor="tc">TC Kimlik No</label>
                 <input id="tc" type="text" inputMode="numeric" maxLength={11}
@@ -339,7 +351,7 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                   aria-required="true" />
                 {errors.tc && <div className="form-error">{errors.tc}</div>}
               </div>
-              <F id="birth_date" label="Doğum Tarihi" type="date" />
+              {renderFormField("birth_date", "Doğum Tarihi", "date")}
               <div className="form-group">
                 <label className="form-label" htmlFor="gender">Cinsiyet</label>
                 <select id="gender" className="form-select" value={form.gender} onChange={e => set('gender', e.target.value)}>
@@ -348,8 +360,8 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                   <option value="female">Kadın</option>
                 </select>
               </div>
-              <F id="phone" label="Telefon" type="tel" />
-              <F id="email" label="E-posta" type="email" />
+              {renderFormField("phone", "Telefon", "tel")}
+              {renderFormField("email", "E-posta", "email")}
               <div className="form-group">
                 <label className="form-label" htmlFor="status">Durum</label>
                 <select id="status" className="form-select" value={form.status} onChange={e => set('status', e.target.value)}>
@@ -358,8 +370,8 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                   <option value="pending">Beklemede</option>
                 </select>
               </div>
-              <F id="school" label="Okul" colSpan />
-              <F id="city" label="Şehir" />
+              {renderFormField("school", "Okul", "text", false, true)}
+              {renderFormField("city", "Şehir")}
               <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                 <label className="form-label" htmlFor="address">Adres</label>
                 <textarea id="address" className="form-input" style={{ minHeight: '80px' }}
@@ -383,8 +395,8 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <F id="category" label="Kategori" />
-              <F id="license_number" label="Lisans Numarası" />
+              {renderFormField("category", "Kategori")}
+              {renderFormField("license_number", "Lisans Numarası")}
             </div>
           )}
           {tab === 2 && (
@@ -394,14 +406,14 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                 <input id="monthly_fee" type="number" min="0" className="form-input"
                   value={form.monthly_fee} onChange={e => set('monthly_fee', e.target.value)} />
               </div>
-              <F id="next_payment_date" label="Sonraki Ödeme Tarihi" type="date" />
+              {renderFormField("next_payment_date", "Sonraki Ödeme Tarihi", "date")}
             </div>
           )}
           {tab === 3 && (
             <div className="grid-2">
-              <F id="parent_name" label="Veli Adı" />
-              <F id="parent_phone" label="Veli Telefon" type="tel" />
-              <F id="parent_email" label="Veli E-posta" type="email" colSpan />
+              {renderFormField("parent_name", "Veli Adı")}
+              {renderFormField("parent_phone", "Veli Telefon", "tel")}
+              {renderFormField("parent_email", "Veli E-posta", "email", false, true)}
             </div>
           )}
           {tab === 4 && (
@@ -413,7 +425,7 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
                   {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', '0+', '0-'].map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
-              <F id="emergency_contact" label="Acil Durum Kişisi" />
+              {renderFormField("emergency_contact", "Acil Durum Kişisi")}
               <div className="form-group">
                 <label className="form-label" htmlFor="height">Boy (cm)</label>
                 <input id="height" type="number" className="form-input" value={form.height} onChange={e => set('height', e.target.value)} />

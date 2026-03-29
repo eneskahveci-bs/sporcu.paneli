@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { SessionTimeout } from '@/components/ui/SessionTimeout'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
+import { FaviconUpdater } from '@/components/ui/FaviconUpdater'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -24,6 +25,7 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
           </div>
           <SessionTimeout />
           <OfflineBanner />
+          <FaviconUpdater />
         </div>
       </AuthProvider>
     </ThemeProvider>

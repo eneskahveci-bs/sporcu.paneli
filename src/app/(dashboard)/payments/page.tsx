@@ -1,11 +1,79 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell } from 'lucide-react'
+import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell, FileText } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
 import type { Payment, Athlete } from '@/types'
+
+function trToAscii(str: string): string {
+  return String(str || '')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+}
+
+async function generateReceipt(payment: Payment, org: { name?: string; address?: string; phone?: string }) {
+  const { jsPDF } = await import('jspdf')
+  const year = new Date().getFullYear()
+  const receiptNo = `MKB-${year}-${String(Date.now()).slice(-4)}`
+
+  const doc = new jsPDF({ unit: 'mm', format: 'a5' })
+  const W = 148
+
+  doc.setFontSize(17)
+  doc.setFont('helvetica', 'bold')
+  doc.text(trToAscii(org.name || 'Sporcu Paneli'), W / 2, 22, { align: 'center' })
+
+  if (org.address) {
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.text(trToAscii(org.address), W / 2, 29, { align: 'center' })
+  }
+  if (org.phone) {
+    doc.text(trToAscii(org.phone), W / 2, 34, { align: 'center' })
+  }
+
+  doc.setDrawColor(200, 200, 200)
+  doc.line(14, 38, W - 14, 38)
+
+  doc.setFontSize(13)
+  doc.setFont('helvetica', 'bold')
+  doc.text('ODEME MAKBUZU', W / 2, 46, { align: 'center' })
+
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'normal')
+  const rows: [string, string][] = [
+    ['Makbuz No', receiptNo],
+    ['Tarih', payment.paid_date || payment.due_date || new Date().toISOString().slice(0, 10)],
+    ['Sporcu', trToAscii(payment.athlete_name || '-')],
+    ['Aciklama', trToAscii(payment.description || payment.category || 'Aidat')],
+    ['Odeme Yontemi', payment.method === 'cash' ? 'Nakit' : payment.method === 'card' ? 'Kart' : payment.method === 'bank_transfer' ? 'Havale' : payment.method || '-'],
+  ]
+
+  let y = 56
+  rows.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'bold')
+    doc.text(label + ':', 16, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(value, 60, y)
+    y += 8
+  })
+
+  doc.line(14, y, W - 14, y)
+  y += 8
+
+  doc.setFontSize(14)
+  doc.setFont('helvetica', 'bold')
+  doc.text('TOPLAM:', 16, y)
+  doc.text(formatCurrency(payment.amount), W - 16, y, { align: 'right' })
+
+  doc.save(`Makbuz_${receiptNo}.pdf`)
+}
 
 const STATUS_BADGE: Record<string, string> = { pending: 'badge-yellow', completed: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 const STATUS_LABEL: Record<string, string> = { pending: 'Bekliyor', completed: 'Ödendi', overdue: 'Gecikmiş', cancelled: 'İptal' }
@@ -16,6 +84,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [pendingApprovals, setPendingApprovals] = useState<Payment[]>([])
   const [athletes, setAthletes] = useState<Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'>[]>([])
+  const [orgInfo, setOrgInfo] = useState<{ name?: string; address?: string; phone?: string }>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -29,13 +98,15 @@ export default function PaymentsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const orgId = user?.user_metadata?.organization_id
     setLoading(true)
-    const [{ data: p }, { data: a }] = await Promise.all([
+    const [{ data: p }, { data: a }, { data: org }] = await Promise.all([
       supabase.from('payments').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
       supabase.from('athletes').select('id, first_name, last_name, monthly_fee').eq('organization_id', orgId).eq('status', 'active'),
+      supabase.from('organizations').select('name, address, phone').eq('id', orgId).single(),
     ])
     setPayments(p || [])
     setPendingApprovals((p || []).filter((pay: Payment) => pay.notification_status === 'pending_approval'))
     setAthletes(a || [])
+    setOrgInfo(org || {})
     setLoading(false)
   }, [supabase])
 
@@ -223,6 +294,11 @@ export default function PaymentsPage() {
                       {(p.status === 'pending' || p.status === 'overdue') && (
                         <button className="btn bsu btn-xs" onClick={() => markPaid(p.id)} title="Ödendi olarak işaretle">
                           <CheckCircle size={12} /> Ödendi
+                        </button>
+                      )}
+                      {p.status === 'completed' && p.type === 'income' && (
+                        <button className="btn bs btn-xs" onClick={() => generateReceipt(p, orgInfo)} title="PDF Makbuz indir">
+                          <FileText size={12} /> Makbuz
                         </button>
                       )}
                     </div>
