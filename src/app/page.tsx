@@ -339,19 +339,11 @@ function OnKayitModal({ onClose }: { onClose: () => void }) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [loginOpen, setLoginOpen] = useState(false)
   const [akademiOpen, setAkademiOpen] = useState(false)
   const [onKayitOpen, setOnKayitOpen] = useState(false)
 
-  // Middleware'den ?modal=login ile yönlendirilince otomatik aç
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    if (params.get('modal') === 'login') setLoginOpen(true)
-  }, [])
-
   return (
     <div className="landing-page">
-      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
       {akademiOpen && <AkademiKayitModal onClose={() => setAkademiOpen(false)} />}
       {onKayitOpen && <OnKayitModal onClose={() => setOnKayitOpen(false)} />}
 
@@ -367,7 +359,7 @@ export default function LandingPage() {
             <a href="#contact">İletişim</a>
           </div>
           <div className="landing-nav-actions">
-            <button onClick={() => setLoginOpen(true)} className="btn-ghost-sm">Giriş Yap</button>
+            <Link href="/login" className="btn-ghost-sm">Giriş Yap</Link>
             <button onClick={() => setAkademiOpen(true)} className="btn-primary-sm">Akademi Kayıt</button>
           </div>
         </div>

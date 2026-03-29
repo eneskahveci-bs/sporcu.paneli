@@ -46,9 +46,9 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  // Giriş yapılmamışsa ana sayfaya yönlendir (login modal otomatik açılır)
+  // Giriş yapılmamışsa login sayfasına yönlendir
   if (!user) {
-    return NextResponse.redirect(new URL('/?modal=login', request.url))
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
   const role = user.user_metadata?.role as string | undefined
