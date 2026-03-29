@@ -107,36 +107,19 @@ export default function SettingsPage() {
 
   const addAdmin = async () => {
     if (!newAdmin.email || !newAdmin.password) { toast.error('E-posta ve şifre zorunludur'); return }
-    if (newAdmin.password.length < 6) { toast.error('Şifre en az 6 karakter olmalıdır'); return }
+    if (newAdmin.password.length < 8) { toast.error('Şifre en az 8 karakter olmalıdır'); return }
     setAddingAdmin(true)
-    const { data, error } = await supabase.auth.signUp({
-      email: newAdmin.email,
-      password: newAdmin.password,
-      options: {
-        data: {
-          full_name: newAdmin.name,
-          organization_id: orgId,
-          role: 'admin',
-        },
-      },
+    const res = await fetch('/api/create-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newAdmin.name, email: newAdmin.email, password: newAdmin.password }),
     })
-    if (error) { toast.error('Hata: ' + error.message); setAddingAdmin(false); return }
-    if (data.user) {
-      // Also insert into users table
-      await supabase.from('users').upsert({
-        id: data.user.id,
-        organization_id: orgId,
-        email: newAdmin.email,
-        first_name: newAdmin.name.split(' ')[0] || newAdmin.name,
-        last_name: newAdmin.name.split(' ').slice(1).join(' ') || '',
-        role: 'admin',
-        is_active: true,
-      }, { onConflict: 'id' })
-    }
-    toast.success('Yönetici eklendi. Onay e-postası gönderildi.')
+    const data = await res.json()
+    setAddingAdmin(false)
+    if (!res.ok) { toast.error(data.error || 'Hata oluştu'); return }
+    toast.success('Yönetici eklendi — e-posta onayı gerekmez, hemen giriş yapabilir.')
     setNewAdmin({ name: '', email: '', password: '' })
     setShowAddAdmin(false)
-    setAddingAdmin(false)
     loadAdmins()
   }
 
@@ -311,8 +294,8 @@ export default function SettingsPage() {
 
                   {showAddAdmin && (
                     <div style={{ padding: '16px', background: 'var(--bg4)', borderRadius: '10px', border: '1px solid var(--border2)', marginBottom: '20px' }}>
-                      <div style={{ fontSize: '12px', color: 'var(--text3)', marginBottom: '12px', padding: '8px 10px', background: 'rgba(45,92,179,0.1)', borderRadius: '6px' }}>
-                        ℹ️ Yeni yönetici <strong>aynı akademi verisini</strong> görecektir. Yönetici e-posta adresine onay bağlantısı gönderilir.
+                      <div style={{ fontSize: '12px', color: 'var(--text3)', marginBottom: '12px', padding: '8px 10px', background: 'rgba(16,185,129,0.08)', borderRadius: '6px', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        ✅ Yeni yönetici <strong>e-posta onayı olmadan</strong> hemen giriş yapabilir. Aynı akademi verisine erişir.
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <F label="Ad Soyad" id="aa-name" value={newAdmin.name} onChange={v => setNewAdmin(p => ({ ...p, name: v }))} placeholder="Örn: Ahmet Yılmaz" />

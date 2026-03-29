@@ -124,13 +124,13 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <div className="sb-user">
+        <Link href="/profile" className="sb-user" style={{ textDecoration: 'none' }} title="Profilim">
           <div className="sb-avatar">{getInitials(fullName)}</div>
           <div className="sb-user-info">
             <div className="sb-user-name">{fullName}</div>
             <div className="sb-user-role">{roleLabel[role] || role}</div>
           </div>
-        </div>
+        </Link>
         <div className="sb-footer-actions">
           <button onClick={toggleTheme} className="sb-icon-btn" title={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}>
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
@@ -188,7 +188,11 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
 
         /* User footer */
         .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-        .sb-user { display: flex; align-items: center; gap: 10px; padding: 6px 4px; }
+        .sb-user {
+          display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+          border-radius: var(--radius-sm); transition: background 0.15s;
+        }
+        .sb-user:hover { background: var(--bg3); }
         .sb-avatar {
           width: 36px; height: 36px; border-radius: 50%;
           background: var(--grad); color: #fff;
