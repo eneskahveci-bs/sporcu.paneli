@@ -1,4 +1,21 @@
-export type UserRole = 'admin' | 'coach' | 'athlete' | 'parent'
+export type UserRole = 'superadmin' | 'admin' | 'coach' | 'athlete' | 'parent'
+export type SubscriptionPlan = 'trial' | 'starter' | 'pro' | 'enterprise'
+export type SubscriptionStatus = 'trial' | 'active' | 'overdue' | 'suspended' | 'cancelled'
+
+export const PLAN_CONFIG: Record<SubscriptionPlan, { name: string; max_athletes: number; max_branches: number; price: number; color: string }> = {
+  trial:      { name: 'Deneme',      max_athletes: 30,   max_branches: 1,  price: 0,    color: '#6366f1' },
+  starter:    { name: 'Başlangıç',   max_athletes: 50,   max_branches: 1,  price: 500,  color: '#0ea5e9' },
+  pro:        { name: 'Profesyonel', max_athletes: 200,  max_branches: 5,  price: 1200, color: '#8b5cf6' },
+  enterprise: { name: 'Kurumsal',    max_athletes: 9999, max_branches: 99, price: 0,    color: '#f59e0b' },
+}
+
+export const STATUS_CONFIG: Record<SubscriptionStatus, { label: string; badge: string }> = {
+  trial:     { label: 'Deneme',    badge: 'badge-blue'   },
+  active:    { label: 'Aktif',     badge: 'badge-green'  },
+  overdue:   { label: 'Gecikmiş', badge: 'badge-yellow' },
+  suspended: { label: 'Askıda',   badge: 'badge-red'    },
+  cancelled: { label: 'İptal',    badge: 'badge-gray'   },
+}
 export type AthleteGender = 'male' | 'female'
 export type AthleteStatus = 'active' | 'inactive' | 'pending'
 export type PaymentType = 'income' | 'expense'
@@ -75,6 +92,7 @@ export interface Athlete {
   school?: string
   status: AthleteStatus
   notes?: string
+  auth_user_id?: string
   created_at: string
   updated_at: string
   created_by?: string
@@ -100,6 +118,7 @@ export interface Coach {
   salary?: number
   start_date?: string
   status: 'active' | 'inactive'
+  auth_user_id?: string
   created_at: string
   updated_at: string
   // Joins

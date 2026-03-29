@@ -89,7 +89,7 @@ body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease;
   min-height: 100vh;
   /* iOS Safari safe area */
   padding-top: env(safe-area-inset-top);
@@ -863,9 +863,10 @@ textarea.form-input {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px;
+  padding: 64px 24px;
   text-align: center;
   color: var(--text3);
+  animation: fadeIn 0.3s ease;
 }
 
 .empty-state-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }

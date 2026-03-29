@@ -1,7 +1,11 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
+<<<<<<< HEAD
 import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell, FileText } from 'lucide-react'
+=======
+import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell, Printer } from 'lucide-react'
+>>>>>>> 6e5df3033618448ae5adcc741dafb5c9905aa3a5
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
@@ -84,7 +88,11 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [pendingApprovals, setPendingApprovals] = useState<Payment[]>([])
   const [athletes, setAthletes] = useState<Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'>[]>([])
+<<<<<<< HEAD
   const [orgInfo, setOrgInfo] = useState<{ name?: string; address?: string; phone?: string }>({})
+=======
+  const [org, setOrg] = useState<{ name: string; address?: string; phone?: string; logo?: string } | null>(null)
+>>>>>>> 6e5df3033618448ae5adcc741dafb5c9905aa3a5
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -98,15 +106,26 @@ export default function PaymentsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     const orgId = user?.user_metadata?.organization_id
     setLoading(true)
+<<<<<<< HEAD
     const [{ data: p }, { data: a }, { data: org }] = await Promise.all([
       supabase.from('payments').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
       supabase.from('athletes').select('id, first_name, last_name, monthly_fee').eq('organization_id', orgId).eq('status', 'active'),
       supabase.from('organizations').select('name, address, phone').eq('id', orgId).single(),
+=======
+    const [{ data: p }, { data: a }, { data: orgData }] = await Promise.all([
+      supabase.from('payments').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
+      supabase.from('athletes').select('id, first_name, last_name, monthly_fee').eq('organization_id', orgId).eq('status', 'active'),
+      supabase.from('organizations').select('name, address, phone, logo').eq('id', orgId).single(),
+>>>>>>> 6e5df3033618448ae5adcc741dafb5c9905aa3a5
     ])
     setPayments(p || [])
     setPendingApprovals((p || []).filter((pay: Payment) => pay.notification_status === 'pending_approval'))
     setAthletes(a || [])
+<<<<<<< HEAD
     setOrgInfo(org || {})
+=======
+    setOrg(orgData)
+>>>>>>> 6e5df3033618448ae5adcc741dafb5c9905aa3a5
     setLoading(false)
   }, [supabase])
 
@@ -162,6 +181,46 @@ export default function PaymentsPage() {
     if (error) { toast.error('Hata: ' + error.message); return }
     toast.success('Ödeme tamamlandı')
     fetchData()
+  }
+
+  const printReceipt = (p: Payment) => {
+    const receiptNo = 'MKZ-' + new Date().getFullYear() + '-' + p.id.slice(-6).toUpperCase()
+    const paidDate = p.paid_date || p.due_date || new Date().toISOString().slice(0, 10)
+    const html = `<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><title>Makbuz ${receiptNo}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;max-width:420px;margin:30px auto;padding:24px;color:#111}
+  .hdr{text-align:center;padding-bottom:16px;border-bottom:2px solid #111;margin-bottom:16px}
+  .logo{max-height:64px;margin-bottom:8px}
+  .org{font-size:18px;font-weight:700}
+  .org-sub{font-size:12px;color:#555;margin-top:3px}
+  .rtitle{text-align:center;font-size:13px;font-weight:700;letter-spacing:3px;color:#555;margin:14px 0}
+  .row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #eee;font-size:13px}
+  .row span:first-child{color:#555}
+  .row span:last-child{font-weight:600}
+  .amt{display:flex;justify-content:space-between;padding:12px 0;font-size:18px;font-weight:700;margin-top:6px;border-top:2px solid #111}
+  .foot{margin-top:18px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}
+  @media print{body{margin:0}}
+</style></head><body>
+<div class="hdr">
+  ${org?.logo ? `<img src="${org.logo}" class="logo" />` : ''}
+  <div class="org">${org?.name || 'Spor Akademisi'}</div>
+  ${org?.address ? `<div class="org-sub">${org.address}</div>` : ''}
+  ${org?.phone ? `<div class="org-sub">Tel: ${org.phone}</div>` : ''}
+</div>
+<div class="rtitle">ELEKTRONİK MAKBUZ</div>
+<div class="row"><span>Makbuz No</span><span>${receiptNo}</span></div>
+<div class="row"><span>Sporcu</span><span>${p.athlete_name || 'Genel'}</span></div>
+<div class="row"><span>Kategori</span><span>${p.category || p.description || 'Aidat'}</span></div>
+${p.description ? `<div class="row"><span>Açıklama</span><span>${p.description}</span></div>` : ''}
+<div class="row"><span>Ödeme Yöntemi</span><span>${METHOD_LABEL[p.method || ''] || '-'}</span></div>
+<div class="row"><span>Ödeme Tarihi</span><span>${new Date(paidDate).toLocaleDateString('tr-TR')}</span></div>
+<div class="amt"><span>TOPLAM TUTAR</span><span>${p.amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span></div>
+<div class="foot">Bu belge elektronik ortamda oluşturulmuştur.<br>${new Date().toLocaleString('tr-TR')}</div>
+</body></html>`
+    const win = window.open('', '_blank', 'width=520,height=750')
+    if (win) { win.document.write(html); win.document.close(); win.focus(); setTimeout(() => win.print(), 400) }
   }
 
   const handleExport = () => {
@@ -296,9 +355,28 @@ export default function PaymentsPage() {
                           <CheckCircle size={12} /> Ödendi
                         </button>
                       )}
+<<<<<<< HEAD
                       {p.status === 'completed' && p.type === 'income' && (
                         <button className="btn bs btn-xs" onClick={() => generateReceipt(p, orgInfo)} title="PDF Makbuz indir">
                           <FileText size={12} /> Makbuz
+=======
+                      {p.status === 'overdue' && (
+                        <button className="btn bs btn-xs" onClick={async () => {
+                          const res = await fetch('/api/send-overdue-email', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ payment_id: p.id }),
+                          })
+                          if (res.ok) toast.success('Hatırlatma e-postası gönderildi')
+                          else { const d = await res.json(); toast.error(d.error || 'Gönderilemedi') }
+                        }} title="Hatırlatma e-postası gönder">
+                          <Bell size={12} /> Hatırlat
+                        </button>
+                      )}
+                      {p.status === 'completed' && (
+                        <button className="btn bs btn-xs" onClick={() => printReceipt(p)} title="Makbuz yazdır">
+                          <Printer size={12} /> Makbuz
+>>>>>>> 6e5df3033618448ae5adcc741dafb5c9905aa3a5
                         </button>
                       )}
                     </div>

@@ -76,7 +76,7 @@ export function SessionTimeout() {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        background: 'var(--bg-primary)', borderRadius: '1rem', padding: '2rem',
+        background: 'var(--bg2)', borderRadius: '1rem', padding: '2rem',
         maxWidth: '400px', width: '90%', textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
       }}>
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⏰</div>

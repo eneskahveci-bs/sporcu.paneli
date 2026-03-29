@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Edit, Trash2, Loader2, Phone, Mail } from 'lucide-react'
+import { Plus, Search, Edit, Trash2, Loader2, Phone, Mail, Key } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, getInitials } from '@/lib/utils/formatters'
 import { validateTC } from '@/lib/utils/tc-validation'
@@ -40,6 +40,30 @@ export default function CoachesPage() {
     const q = search.toLowerCase()
     return !q || `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || c.tc?.includes(q) || c.phone?.includes(q) || ''
   })
+
+  const provisionCoach = async (coachId: string, tc: string) => {
+    const res = await window.fetch('/api/provision-coach', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coach_id: coachId, tc }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error('Giriş oluşturulamadı: ' + (data.error || '')); return }
+    toast.success(`Giriş oluşturuldu — Kullanıcı adı: ${tc} / İlk şifre: ${tc} (ilk girişte değiştirilecek)`)
+    fetch()
+  }
+
+  const resetCoachPassword = async (coachId: string, name: string) => {
+    if (!confirm(`${name} şifresi TC numarasına sıfırlanacak. Emin misiniz?`)) return
+    const res = await window.fetch('/api/reset-user-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'coach', id: coachId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error || 'Şifre sıfırlanamadı'); return }
+    toast.success(data.message || 'Şifre başarıyla sıfırlandı')
+  }
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from('coaches').delete().eq('id', id)
@@ -81,9 +105,14 @@ export default function CoachesPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 700, fontSize: '16px', color: 'var(--text)' }}>{c.first_name} {c.last_name}</div>
                   <div style={{ fontSize: '13px', color: 'var(--text3)', marginBottom: '8px' }}>{(c.sport as { name: string } | null)?.name || 'Spor dalı belirsiz'}</div>
-                  <span className={`badge ${c.status === 'active' ? 'badge-green' : 'badge-gray'}`} style={{ fontSize: '11px' }}>
-                    {c.status === 'active' ? 'Aktif' : 'Pasif'}
-                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <span className={`badge ${c.status === 'active' ? 'badge-green' : 'badge-gray'}`} style={{ fontSize: '11px' }}>
+                      {c.status === 'active' ? 'Aktif' : 'Pasif'}
+                    </span>
+                    <span className={`badge ${c.auth_user_id ? 'badge-blue' : 'badge-gray'}`} style={{ fontSize: '11px' }}>
+                      {c.auth_user_id ? 'Giriş Var' : 'Giriş Yok'}
+                    </span>
+                  </div>
                 </div>
               </div>
               <div style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -98,6 +127,12 @@ export default function CoachesPage() {
               </div>
               <div style={{ display: 'flex', gap: '8px', marginTop: '14px', paddingTop: '14px', borderTop: '1px solid var(--border)' }}>
                 <button className="btn bs btn-sm" style={{ flex: 1 }} onClick={() => { setEditing(c); setShowModal(true) }}><Edit size={13} /> Düzenle</button>
+                {!c.auth_user_id && c.tc && (
+                  <button className="btn bp btn-sm" onClick={() => provisionCoach(c.id, c.tc!)} title="Giriş Oluştur"><Key size={13} /></button>
+                )}
+                {c.auth_user_id && (
+                  <button className="btn bs btn-sm" onClick={() => resetCoachPassword(c.id, `${c.first_name} ${c.last_name}`)} title="Şifre Sıfırla"><Key size={13} /></button>
+                )}
                 <button className="btn bd btn-sm" onClick={() => setDeleteId(c.id)}><Trash2 size={13} /></button>
               </div>
             </div>
@@ -165,11 +200,22 @@ function CoachModal({ coach, sports, branches, onClose, onSave }: {
     const orgId = user?.user_metadata?.organization_id
     const payload = { ...form, organization_id: orgId, salary: form.salary ? parseFloat(form.salary) : null, sport_id: form.sport_id || null, branch_id: form.branch_id || null, start_date: form.start_date || null }
     let error
-    if (coach) { ({ error } = await supabase.from('coaches').update(payload).eq('id', coach.id)) }
-    else { ({ error } = await supabase.from('coaches').insert(payload)) }
+    if (coach) {
+      ({ error } = await supabase.from('coaches').update(payload).eq('id', coach.id))
+    } else {
+      const { data: newCoach, error: insertError } = await supabase.from('coaches').insert(payload).select('id').single()
+      error = insertError
+      if (!insertError && newCoach && form.tc.length === 11) {
+        await window.fetch('/api/provision-coach', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coach_id: newCoach.id, tc: form.tc }),
+        })
+      }
+    }
     setSaving(false)
     if (error) { toast.error('Hata: ' + error.message); return }
-    toast.success(coach ? 'Antrenör güncellendi' : 'Antrenör eklendi')
+    toast.success(coach ? 'Antrenör güncellendi' : 'Antrenör eklendi ve giriş hesabı oluşturuldu')
     onSave()
   }
 

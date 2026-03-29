@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { validateTC } from '@/lib/utils/tc-validation'
-import { Eye, EyeOff, Loader2, X } from 'lucide-react'
+import { Eye, EyeOff, Loader2, X, Users, CreditCard, ClipboardCheck, MessageSquare, BarChart3, Trophy, GraduationCap, ShieldCheck, Smartphone, ChevronRight } from 'lucide-react'
 
 type LoginTab = 'athlete' | 'coach' | 'admin'
 
@@ -35,7 +35,7 @@ function LoginModal({ onClose }: { onClose: () => void }) {
     }
     setLoading(true)
     try {
-      const loginEmail = tab !== 'admin' ? `${tc}@sporcu.tc` : email
+      const loginEmail = tab === 'athlete' ? `${tc}@sporcu.tc` : tab === 'coach' ? `${tc}@antrenor.tc` : email
       const { data, error: authErr } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
       if (authErr) { setError('Giriş bilgileri hatalı.'); return }
       const role = data.user?.user_metadata?.role
@@ -49,7 +49,13 @@ function LoginModal({ onClose }: { onClose: () => void }) {
         await supabase.auth.signOut(); setError('Bu hesap yönetici girişi için kayıtlı değil.'); return
       }
       onClose()
-      router.push(role === 'athlete' || role === 'parent' ? '/portal' : '/dashboard')
+      if (role === 'athlete' || role === 'parent') {
+        router.push('/portal')
+      } else if (role === 'coach') {
+        router.push('/antrenor')
+      } else {
+        router.push('/dashboard')
+      }
     } finally {
       setLoading(false)
     }
@@ -333,13 +339,11 @@ function OnKayitModal({ onClose }: { onClose: () => void }) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function LandingPage() {
-  const [loginOpen, setLoginOpen] = useState(false)
   const [akademiOpen, setAkademiOpen] = useState(false)
   const [onKayitOpen, setOnKayitOpen] = useState(false)
 
   return (
     <div className="landing-page">
-      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} />}
       {akademiOpen && <AkademiKayitModal onClose={() => setAkademiOpen(false)} />}
       {onKayitOpen && <OnKayitModal onClose={() => setOnKayitOpen(false)} />}
 
@@ -355,7 +359,7 @@ export default function LandingPage() {
             <a href="#contact">İletişim</a>
           </div>
           <div className="landing-nav-actions">
-            <button onClick={() => setLoginOpen(true)} className="btn-ghost-sm">Giriş Yap</button>
+            <Link href="/login" className="btn-ghost-sm">Giriş Yap</Link>
             <button onClick={() => setAkademiOpen(true)} className="btn-primary-sm">Akademi Kayıt</button>
           </div>
         </div>
@@ -364,7 +368,7 @@ export default function LandingPage() {
       {/* Hero */}
       <section className="landing-hero">
         <div className="landing-hero-inner">
-          <div className="hero-badge">🏅 Spor Akademisi Yönetim Sistemi</div>
+          <div className="hero-badge"><Trophy size={13} /> Spor Akademisi Yönetim Sistemi</div>
           <h1 className="hero-title">
             Spor Akademinizi<br />
             <span className="hero-title-accent">Profesyonelce</span> Yönetin
@@ -373,25 +377,61 @@ export default function LandingPage() {
             Sporcu kaydından ödeme takibine, devam yoklamasından SMS bildirimlerine —
             tüm akademi operasyonlarınızı tek platformda yönetin.
           </p>
+          <div className="hero-actions">
+            <Link href="/login" className="btn-primary-sm" style={{ fontSize: '1rem', padding: '0.75rem 1.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+              Giriş Yap <ChevronRight size={16} />
+            </Link>
+            <button onClick={() => setAkademiOpen(true)} className="btn-ghost-sm" style={{ fontSize: '1rem', padding: '0.75rem 1.75rem' }}>
+              Demo İste
+            </button>
+          </div>
+          <div className="hero-stats">
+            {[{ v: '500+', l: 'Sporcu' }, { v: '50+', l: 'Akademi' }, { v: '99.9%', l: 'Uptime' }].map(s => (
+              <div key={s.l} className="hero-stat">
+                <div className="hero-stat-val">{s.v}</div>
+                <div className="hero-stat-lbl">{s.l}</div>
+              </div>
+            ))}
+          </div>
         </div>
         <div className="hero-visual">
-          <div className="onkayit-card">
-            <div className="onkayit-card-top">
-              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>📋</div>
-              <h3 className="onkayit-title">Sporcu Ön Kayıt</h3>
-              <p className="onkayit-desc">
-                Akademimize katılmak ister misiniz? Ön kayıt formunu doldurun, ekibimiz sizinle iletişime geçsin.
-              </p>
+          {/* Dashboard Mockup */}
+          <div className="dashboard-mockup">
+            <div className="mockup-bar">
+              <div className="mockup-dots"><span /><span /><span /></div>
+              <div className="mockup-title">sporcu-paneli.vercel.app/dashboard</div>
             </div>
-            <ul className="onkayit-list">
-              <li>✅ Ücretsiz ön kayıt</li>
-              <li>✅ Hızlı geri dönüş</li>
-              <li>✅ Tüm spor dalları</li>
-            </ul>
-            <button className="onkayit-btn" onClick={() => setOnKayitOpen(true)}>
-              Ön Kayıt Yap
-            </button>
-            <p className="onkayit-note">Ya da <a href="tel:+905469775868" style={{ color: 'var(--blue2)', textDecoration: 'none' }}>+90 546 977 58 68</a> numaralı hattı arayın</p>
+            <div className="mockup-body">
+              <div className="mockup-sidebar">
+                {['🏠 Ana Sayfa', '🏃 Sporcular', '💳 Ödemeler', '📋 Devam', '📈 Raporlar'].map(item => (
+                  <div key={item} className={`mockup-nav-item${item.startsWith('🏠') ? ' active' : ''}`}>{item}</div>
+                ))}
+              </div>
+              <div className="mockup-content">
+                <div className="mockup-stats">
+                  {[{ n: '124', l: 'Sporcu', c: '#6366f1' }, { n: '18', l: 'Antrenör', c: '#0ea5e9' }, { n: '₺42K', l: 'Gelir', c: '#10b981' }, { n: '96%', l: 'Devam', c: '#f59e0b' }].map(s => (
+                    <div key={s.l} className="mockup-stat" style={{ borderLeft: `3px solid ${s.c}` }}>
+                      <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--text)' }}>{s.n}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mockup-table">
+                  {['Ahmet Y.', 'Elif K.', 'Can D.'].map((name, i) => (
+                    <div key={name} className="mockup-row">
+                      <div className="mockup-avatar">{name[0]}</div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{name}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>Futbol</div>
+                      </div>
+                      <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: i === 1 ? '#fef3c7' : '#dcfce7', color: i === 1 ? '#92400e' : '#166534', fontWeight: 600 }}>
+                        {i === 1 ? 'Bekliyor' : 'Aktif'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -405,18 +445,18 @@ export default function LandingPage() {
           </div>
           <div className="features-grid">
             {[
-              { icon: '👤', title: 'Sporcu Yönetimi', desc: 'TC kimlik doğrulamalı sporcu kaydı, veli bilgileri, sağlık bilgileri ve dosya yönetimi.' },
-              { icon: '💳', title: 'Ödeme Takibi', desc: 'Otomatik aidat planları, PayTR entegrasyonu, gecikmiş ödeme bildirimleri ve gelir raporları.' },
-              { icon: '📋', title: 'Devam Yoklaması', desc: 'Günlük devam takibi, mazeretli/özürsüz ayrımı, devam istatistikleri ve veli bilgilendirmesi.' },
-              { icon: '📱', title: 'SMS & WhatsApp', desc: 'NetGSM entegrasyonu ile toplu SMS gönderimi, WhatsApp Business API desteği.' },
-              { icon: '📊', title: 'Gelişmiş Raporlar', desc: 'Aylık gelir grafikleri, devam analizi, sporcu gelişim takibi ve özelleştirilebilir raporlar.' },
-              { icon: '🏆', title: 'Çoklu Spor Dalı', desc: 'Futbol, basketbol, yüzme ve daha fazlası — tüm spor dallarını tek panelden yönetin.' },
-              { icon: '👨‍🏫', title: 'Antrenör Paneli', desc: 'Antrenörler için özel erişim, yoklama girişi ve kendi sınıflarını yönetme imkanı.' },
-              { icon: '🔐', title: 'Banka Güvenliği', desc: 'Row Level Security, SSL/TLS şifreleme, KVKK uyumu ve 2FA desteği.' },
-              { icon: '📲', title: 'Sporcu Portalı', desc: 'Sporcular ve veliler için mobil uyumlu kişisel portal — ödeme ve devam görüntüleme.' },
+              { icon: <Users size={22} />, title: 'Sporcu Yönetimi', desc: 'TC kimlik doğrulamalı sporcu kaydı, veli bilgileri, sağlık bilgileri ve dosya yönetimi.', color: '#6366f1' },
+              { icon: <CreditCard size={22} />, title: 'Ödeme Takibi', desc: 'Otomatik aidat planları, PayTR entegrasyonu, gecikmiş ödeme bildirimleri ve gelir raporları.', color: '#0ea5e9' },
+              { icon: <ClipboardCheck size={22} />, title: 'Devam Yoklaması', desc: 'Günlük devam takibi, mazeretli/özürsüz ayrımı, devam istatistikleri ve veli bilgilendirmesi.', color: '#10b981' },
+              { icon: <MessageSquare size={22} />, title: 'SMS & WhatsApp', desc: 'NetGSM entegrasyonu ile toplu SMS gönderimi, WhatsApp Business API desteği.', color: '#f59e0b' },
+              { icon: <BarChart3 size={22} />, title: 'Gelişmiş Raporlar', desc: 'Aylık gelir grafikleri, devam analizi, sporcu gelişim takibi ve özelleştirilebilir raporlar.', color: '#8b5cf6' },
+              { icon: <Trophy size={22} />, title: 'Çoklu Spor Dalı', desc: 'Futbol, basketbol, yüzme ve daha fazlası — tüm spor dallarını tek panelden yönetin.', color: '#ef4444' },
+              { icon: <GraduationCap size={22} />, title: 'Antrenör Paneli', desc: 'Antrenörler için özel erişim, yoklama girişi ve kendi sınıflarını yönetme imkanı.', color: '#06b6d4' },
+              { icon: <ShieldCheck size={22} />, title: 'Banka Güvenliği', desc: 'Row Level Security, SSL/TLS şifreleme, KVKK uyumu ve 2FA desteği.', color: '#64748b' },
+              { icon: <Smartphone size={22} />, title: 'Sporcu Portalı', desc: 'Sporcular ve veliler için mobil uyumlu kişisel portal — ödeme ve devam görüntüleme.', color: '#ec4899' },
             ].map((f, i) => (
               <div key={i} className="feature-card">
-                <div className="feature-icon">{f.icon}</div>
+                <div className="feature-icon" style={{ background: f.color + '18', color: f.color }}>{f.icon}</div>
                 <h3 className="feature-title">{f.title}</h3>
                 <p className="feature-desc">{f.desc}</p>
               </div>
@@ -484,7 +524,31 @@ export default function LandingPage() {
         .hero-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.375rem 0.875rem; background: var(--bg4); color: var(--blue2); border: 1px solid var(--border2); border-radius: 2rem; font-size: 0.8125rem; font-weight: 600; margin-bottom: 1.5rem; }
         .hero-title { font-size: clamp(2rem, 4vw, 3.25rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.03em; margin-bottom: 1.25rem; color: var(--text); }
         .hero-title-accent { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-        .hero-subtitle { font-size: 1.0625rem; color: var(--text2); line-height: 1.7; max-width: 480px; }
+        .hero-subtitle { font-size: 1.0625rem; color: var(--text2); line-height: 1.7; max-width: 480px; margin-bottom: 1.75rem; }
+        .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2rem; }
+        .hero-stats { display: flex; gap: 2rem; }
+        .hero-stat-val { font-size: 1.375rem; font-weight: 800; color: var(--text); }
+        .hero-stat-lbl { font-size: 0.75rem; color: var(--text3); font-weight: 500; }
+
+        /* Dashboard Mockup */
+        .dashboard-mockup { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.3); }
+        .mockup-bar { background: var(--bg3); padding: 10px 14px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border); }
+        .mockup-dots { display: flex; gap: 5px; }
+        .mockup-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--border2); }
+        .mockup-dots span:nth-child(1) { background: #ef4444; }
+        .mockup-dots span:nth-child(2) { background: #f59e0b; }
+        .mockup-dots span:nth-child(3) { background: #10b981; }
+        .mockup-title { font-size: 11px; color: var(--text3); flex: 1; text-align: center; font-family: monospace; }
+        .mockup-body { display: flex; height: 280px; }
+        .mockup-sidebar { width: 130px; background: var(--bg3); padding: 10px 8px; display: flex; flex-direction: column; gap: 3px; border-right: 1px solid var(--border); flex-shrink: 0; }
+        .mockup-nav-item { padding: 7px 10px; border-radius: 6px; font-size: 11px; color: var(--text3); cursor: default; }
+        .mockup-nav-item.active { background: var(--grad); color: #fff; font-weight: 600; }
+        .mockup-content { flex: 1; padding: 14px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+        .mockup-stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+        .mockup-stat { background: var(--bg3); border-radius: 8px; padding: 10px 10px 8px; border-left-style: solid; border-left-width: 3px; }
+        .mockup-table { display: flex; flex-direction: column; gap: 6px; }
+        .mockup-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: var(--bg3); border-radius: 8px; }
+        .mockup-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--grad); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .hero-visual { flex: 1; max-width: 420px; }
 
         /* Ön Kayıt Card */
@@ -553,7 +617,7 @@ export default function LandingPage() {
         .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
         .feature-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; transition: all 0.2s; }
         .feature-card:hover { border-color: var(--border2); box-shadow: var(--shadow-sm); transform: translateY(-2px); }
-        .feature-icon { font-size: 2rem; margin-bottom: 0.75rem; }
+        .feature-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 0.875rem; }
         .feature-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text); }
         .feature-desc { font-size: 0.875rem; color: var(--text2); line-height: 1.6; }
 

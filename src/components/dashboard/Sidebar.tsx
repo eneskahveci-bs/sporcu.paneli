@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import {
   Home, Calendar, ChevronDown, UserPlus, Users, UserCheck,
   Dumbbell, BookOpen, ClipboardCheck, CreditCard, BarChart3,
-  Package, Bell, Settings, LogOut, Sun, Moon,
+  Package, Bell, Settings, LogOut, Sun, Moon, Building2, MessageSquare,
 } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useTheme } from '@/providers/ThemeProvider'
@@ -18,12 +18,14 @@ const AKADEMI_ITEMS = [
   { href: '/sports', label: 'Branşlar', icon: Dumbbell },
   { href: '/classes', label: 'Sınıflar', icon: BookOpen },
   { href: '/attendance', label: 'Devam', icon: ClipboardCheck },
+  { href: '/branches', label: 'Şubeler', icon: Building2 },
 ]
 
 const MUHASEBE_ITEMS = [
   { href: '/payments', label: 'Ödemeler', icon: CreditCard },
   { href: '/reports', label: 'Finans / Rapor', icon: BarChart3 },
   { href: '/inventory', label: 'Envanter', icon: Package },
+  { href: '/messages', label: 'Mesajlar', icon: MessageSquare },
   { href: '/sms', label: 'Bildirimler', icon: Bell },
   { href: '/settings', label: 'Ayarlar', icon: Settings },
 ]
@@ -122,13 +124,13 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
 
       {/* Footer */}
       <div className="sidebar-footer">
-        <div className="sb-user">
+        <Link href="/profile" className="sb-user" style={{ textDecoration: 'none' }} title="Profilim">
           <div className="sb-avatar">{getInitials(fullName)}</div>
           <div className="sb-user-info">
             <div className="sb-user-name">{fullName}</div>
             <div className="sb-user-role">{roleLabel[role] || role}</div>
           </div>
-        </div>
+        </Link>
         <div className="sb-footer-actions">
           <button onClick={toggleTheme} className="sb-icon-btn" title={theme === 'dark' ? 'Açık tema' : 'Koyu tema'}>
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
@@ -170,6 +172,7 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
         .sb-item-active {
           background: var(--grad) !important; color: #fff !important;
           font-weight: 600;
+          box-shadow: 0 4px 12px rgba(45,92,179,0.3);
         }
         .sb-item-active .sb-icon-circle { border-color: rgba(255,255,255,0.4); color: #fff; }
 
@@ -185,7 +188,11 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
 
         /* User footer */
         .sidebar-footer { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-        .sb-user { display: flex; align-items: center; gap: 10px; padding: 6px 4px; }
+        .sb-user {
+          display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+          border-radius: var(--radius-sm); transition: background 0.15s;
+        }
+        .sb-user:hover { background: var(--bg3); }
         .sb-avatar {
           width: 36px; height: 36px; border-radius: 50%;
           background: var(--grad); color: #fff;
