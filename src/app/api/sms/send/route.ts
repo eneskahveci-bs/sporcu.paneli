@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limiter'
+import { writeAuditLog, getClientIp } from '@/lib/audit'
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,7 +9,11 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ success: false, error: 'Yetkisiz' }, { status: 401 })
 
+    // Rate limit: org başına saatte 10 SMS isteği
     const orgId = user.user_metadata?.organization_id
+    const rl = await checkRateLimit({ key: `org:${orgId}:sms`, limit: 10, windowSeconds: 3600 })
+    if (!rl.allowed) return rl.response
+
     const body = await req.json()
     const { recipients, message, type } = body
 
@@ -104,6 +110,18 @@ export async function POST(req: NextRequest) {
     }
 
     const sentCount = results.filter(r => r.status === 'sent').length
+
+    // Audit log
+    await writeAuditLog({
+      organization_id: orgId,
+      user_id: user.id,
+      user_email: user.email,
+      action: type === 'sms' ? 'sms.send' : 'whatsapp.send',
+      resource_type: 'sms',
+      ip_address: getClientIp(req),
+      metadata: { recipient_count: recipients.length, sent: sentCount, failed: results.length - sentCount },
+    })
+
     return NextResponse.json({ success: true, sent: sentCount, failed: results.length - sentCount })
   } catch (e) {
     return NextResponse.json({ success: false, error: String(e) }, { status: 500 })

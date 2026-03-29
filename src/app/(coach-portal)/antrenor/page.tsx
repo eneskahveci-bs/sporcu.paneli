@@ -9,6 +9,7 @@ import {
   MessageSquare, Send, Eye, EyeOff, KeyRound,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { validatePassword } from '@/lib/password-validator'
 import { formatDate, getInitials } from '@/lib/utils/formatters'
 import type { Class, Athlete } from '@/types'
 
@@ -650,7 +651,8 @@ function SetPasswordScreenCoach({ onDone }: { onDone: () => void }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (newPw.length < 8) { setError('Şifre en az 8 karakter olmalıdır'); return }
+    const pwCheck = validatePassword(newPw)
+    if (!pwCheck.valid) { setError(pwCheck.errors[0]); return }
     if (newPw !== confirmPw) { setError('Şifreler eşleşmiyor'); return }
     setLoading(true)
     try {

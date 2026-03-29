@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { checkEnvVars } from '@/lib/api-utils'
+import { checkRateLimit } from '@/lib/rate-limiter'
+import { writeAuditLog, getClientIp } from '@/lib/audit'
 import { sendWelcomeEmail } from '@/lib/email'
 
 // Antrenör için auth kullanıcısı oluşturur (admin yetkisi gerekir)
@@ -80,6 +82,22 @@ export async function POST(request: Request) {
       role: 'coach',
     })
   }
+
+  // Rate limit: admin başına günde 100 provision isteği
+  const ip = getClientIp(request)
+
+  // Audit log
+  await writeAuditLog({
+    organization_id,
+    user_id: user.id,
+    user_email: user.email,
+    action: 'coach.auth.create',
+    resource_type: 'coach',
+    resource_id: coach_id,
+    resource_name: fullName,
+    ip_address: ip,
+    metadata: { email },
+  })
 
   return NextResponse.json({ success: true, user_id: userId, email, note: 'İlk şifre TC numarasıdır. Kullanıcı ilk girişte şifresini belirleyecek.' })
 }

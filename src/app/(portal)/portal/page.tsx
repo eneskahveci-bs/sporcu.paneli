@@ -10,6 +10,7 @@ import {
   TrendingUp, AlertCircle, BookOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { validatePassword } from '@/lib/password-validator'
 import type { Payment, Attendance } from '@/types'
 
 const DAYS_TR = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
@@ -25,7 +26,8 @@ function SetPasswordScreen({ onDone }: { onDone: () => void }) {
   const [showPw, setShowPw] = useState(false); const [loading, setLoading] = useState(false); const [error, setError] = useState('')
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('')
-    if (newPw.length < 8) { setError('Şifre en az 8 karakter olmalıdır'); return }
+    const pwCheck = validatePassword(newPw)
+    if (!pwCheck.valid) { setError(pwCheck.errors[0]); return }
     if (newPw !== confirmPw) { setError('Şifreler eşleşmiyor'); return }
     setLoading(true)
     try {
@@ -172,7 +174,8 @@ function PortalPage() {
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!pwForm.current) { toast.error('Mevcut şifrenizi girin'); return }
-    if (pwForm.newPw.length < 8) { toast.error('Yeni şifre en az 8 karakter'); return }
+    const pwCheck = validatePassword(pwForm.newPw)
+    if (!pwCheck.valid) { toast.error(pwCheck.errors[0]); return }
     if (pwForm.newPw !== pwForm.confirm) { toast.error('Şifreler eşleşmiyor'); return }
     setSavingPw(true)
     const { error: signInErr } = await supabase.auth.signInWithPassword({ email: userEmail, password: pwForm.current })

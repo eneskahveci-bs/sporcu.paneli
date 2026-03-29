@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { checkEnvVars } from '@/lib/api-utils'
+import { writeAuditLog, getClientIp } from '@/lib/audit'
 
 // Admin, sporcu veya antrenörün şifresini TC numarasına sıfırlar ve must_change_password: true yapar
 export async function POST(request: Request) {
@@ -46,6 +47,19 @@ export async function POST(request: Request) {
   })
 
   if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 500 })
+
+  // Audit log
+  await writeAuditLog({
+    organization_id: orgId,
+    user_id: user.id,
+    user_email: user.email,
+    action: 'user.password.reset',
+    resource_type: type,
+    resource_id: id,
+    resource_name: `${record.first_name} ${record.last_name}`,
+    ip_address: getClientIp(request),
+    metadata: { target_user_id: record.auth_user_id },
+  })
 
   return NextResponse.json({
     success: true,

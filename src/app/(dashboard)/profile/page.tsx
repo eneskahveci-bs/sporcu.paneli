@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
-import { Save, Loader2, Eye, EyeOff, KeyRound, User } from 'lucide-react'
+import { Save, Loader2, Eye, EyeOff, KeyRound, User, CheckCircle, XCircle } from 'lucide-react'
+import { validatePassword, SCORE_LABELS, SCORE_COLORS } from '@/lib/password-validator'
 import { toast } from 'sonner'
 import { getInitials } from '@/lib/utils/formatters'
 
@@ -64,7 +65,8 @@ export default function ProfilePage() {
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!currentPw) { toast.error('Mevcut şifrenizi girin'); return }
-    if (newPw.length < 8) { toast.error('Yeni şifre en az 8 karakter olmalıdır'); return }
+    const pwCheck = validatePassword(newPw)
+    if (!pwCheck.valid) { toast.error(pwCheck.errors[0]); return }
     if (newPw !== confirmPw) { toast.error('Şifreler eşleşmiyor'); return }
     if (newPw === currentPw) { toast.error('Yeni şifre mevcut şifreden farklı olmalıdır'); return }
 
@@ -183,18 +185,30 @@ export default function ProfilePage() {
                 />
               </div>
               {/* Güç göstergesi */}
-              {newPw.length > 0 && (
-                <div style={{ marginTop: 6 }}>
-                  <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
-                    {[1,2,3,4].map(i => (
-                      <div key={i} style={{ flex: 1, height: 3, borderRadius: 3, background: passwordStrength(newPw) >= i ? strengthColor(passwordStrength(newPw)) : 'var(--border2)' }} />
-                    ))}
+              {newPw.length > 0 && (() => {
+                const pv = validatePassword(newPw)
+                return (
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                      {[0,1,2,3].map(i => (
+                        <div key={i} style={{ flex: 1, height: 3, borderRadius: 3, background: pv.score > i ? SCORE_COLORS[pv.score] : 'var(--border2)', transition: 'background 0.2s' }} />
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: 11, color: SCORE_COLORS[pv.score], fontWeight: 600 }}>{SCORE_LABELS[pv.score]}</span>
+                      {pv.errors[0] && <span style={{ fontSize: 11, color: '#ef4444' }}>{pv.errors[0]}</span>}
+                    </div>
+                    <div style={{ marginTop: 5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {[{ ok: newPw.length >= 8, text: 'En az 8 karakter' }, { ok: /[a-zA-Z]/.test(newPw), text: 'En az bir harf' }, { ok: /[0-9]/.test(newPw), text: 'En az bir rakam' }].map(r => (
+                        <div key={r.text} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: r.ok ? '#10b981' : 'var(--text3)' }}>
+                          {r.ok ? <CheckCircle size={10} /> : <XCircle size={10} />} {r.text}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ fontSize: 11, color: strengthColor(passwordStrength(newPw)) }}>
-                    {['', 'Zayıf', 'Orta', 'İyi', 'Güçlü'][passwordStrength(newPw)]}
-                  </div>
-                </div>
-              )}
+                )
+              })()
+              }
             </div>
             <div className="form-group">
               <label className="form-label">Yeni Şifre Tekrar</label>
@@ -224,20 +238,6 @@ export default function ProfilePage() {
     </DashboardLayout>
   )
 }
-
-function passwordStrength(pw: string): number {
-  let score = 0
-  if (pw.length >= 8) score++
-  if (pw.length >= 12) score++
-  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++
-  if (/[0-9]/.test(pw) && /[^a-zA-Z0-9]/.test(pw)) score++
-  return Math.min(score, 4)
-}
-
-function strengthColor(score: number): string {
-  return ['', '#ef4444', '#f59e0b', '#0ea5e9', '#10b981'][score]
-}
-
 const eyeBtn: React.CSSProperties = {
   position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
   background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex',

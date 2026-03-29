@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { checkEnvVars } from '@/lib/api-utils'
+import { writeAuditLog, getClientIp } from '@/lib/audit'
 
 // Admin kullanıcısı oluşturur — e-posta onayı gerekmez, anında giriş yapılabilir
 export async function POST(request: Request) {
@@ -57,6 +58,19 @@ export async function POST(request: Request) {
       is_active: true,
     }, { onConflict: 'id' })
   } catch { /* tablo yoksa ignore */ }
+
+  // Audit log
+  await writeAuditLog({
+    organization_id: orgId,
+    user_id: user.id,
+    user_email: user.email,
+    action: 'admin.create',
+    resource_type: 'admin',
+    resource_id: newUser.user.id,
+    resource_name: name || email,
+    ip_address: getClientIp(request),
+    metadata: { new_admin_email: email },
+  })
 
   return NextResponse.json({ success: true, user_id: newUser.user.id })
 }
