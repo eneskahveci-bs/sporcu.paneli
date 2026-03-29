@@ -38,7 +38,7 @@ export default function CoachesPage() {
 
   const filtered = coaches.filter(c => {
     const q = search.toLowerCase()
-    return !q || `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || c.tc?.includes(q) || c.phone?.includes(q) || ''
+    return !q || `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) || (c.tc?.includes(q) ?? false) || (c.phone?.includes(q) ?? false)
   })
 
   const provisionCoach = async (coachId: string, tc: string) => {

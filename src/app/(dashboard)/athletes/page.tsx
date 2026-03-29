@@ -48,7 +48,7 @@ export default function AthletesPage() {
 
   const filtered = athletes.filter(a => {
     const q = search.toLowerCase()
-    const matchSearch = !q || `${a.first_name} ${a.last_name}`.toLowerCase().includes(q) || a.tc.includes(q) || a.phone?.includes(q) || ''
+    const matchSearch = !q || `${a.first_name} ${a.last_name}`.toLowerCase().includes(q) || a.tc.includes(q) || (a.phone?.includes(q) ?? false)
     const matchStatus = !statusFilter || a.status === statusFilter
     const matchSport = !sportFilter || a.sport_id === sportFilter
     return matchSearch && matchStatus && matchSport

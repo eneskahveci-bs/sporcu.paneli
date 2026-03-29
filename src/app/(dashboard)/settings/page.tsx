@@ -300,7 +300,7 @@ export default function SettingsPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         <F label="Ad Soyad" id="aa-name" value={newAdmin.name} onChange={v => setNewAdmin(p => ({ ...p, name: v }))} placeholder="Örn: Ahmet Yılmaz" />
                         <F label="E-posta *" id="aa-email" value={newAdmin.email} onChange={v => setNewAdmin(p => ({ ...p, email: v }))} type="email" placeholder="admin@akademi.com" />
-                        <F label="Şifre * (en az 6 karakter)" id="aa-pass" value={newAdmin.password} onChange={v => setNewAdmin(p => ({ ...p, password: v }))} type="password" placeholder="••••••" />
+                        <F label="Şifre * (en az 8 karakter)" id="aa-pass" value={newAdmin.password} onChange={v => setNewAdmin(p => ({ ...p, password: v }))} type="password" placeholder="••••••" />
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button className="btn bs btn-sm" onClick={() => setShowAddAdmin(false)}>İptal</button>
                           <button className="btn bp btn-sm" onClick={addAdmin} disabled={addingAdmin}>
