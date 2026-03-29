@@ -19,12 +19,14 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [kvkkAccepted, setKvkkAccepted] = useState(false)
 
-  const reset = (t: LoginTab) => { setTab(t); setError(''); setTc(''); setEmail(''); setPassword('') }
+  const reset = (t: LoginTab) => { setTab(t); setError(''); setTc(''); setEmail(''); setPassword(''); setKvkkAccepted(false) }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    if (!kvkkAccepted) { setError('Devam etmek için KVKK onayı vermeniz gerekmektedir.'); return }
     if (tab !== 'admin') {
       if (!tc || tc.length !== 11) { setError('TC Kimlik No 11 haneli olmalıdır'); return }
       if (!validateTC(tc)) { setError('Geçersiz TC Kimlik No'); return }
@@ -175,7 +177,22 @@ export default function LoginPage() {
 
             {error && <div className="login-error">{error}</div>}
 
-            <button type="submit" disabled={loading} className="login-submit">
+            {/* KVKK Onay */}
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem', cursor: 'pointer', fontSize: '0.8125rem', color: 'var(--text2)', lineHeight: 1.5, marginTop: '0.25rem' }}>
+              <input
+                type="checkbox"
+                checked={kvkkAccepted}
+                onChange={e => { setKvkkAccepted(e.target.checked); if (error) setError('') }}
+                style={{ marginTop: '2px', flexShrink: 0, width: 15, height: 15, cursor: 'pointer', accentColor: 'var(--blue2)' }}
+              />
+              <span>
+                {tab === 'admin'
+                  ? <><Link href="/kullanim-kosullari" target="_blank" style={{ color: 'var(--blue2)' }}>Kullanım Koşulları&apos;nı</Link> ve{' '}<Link href="/gizlilik" target="_blank" style={{ color: 'var(--blue2)' }}>Gizlilik Politikası&apos;nı</Link> okudum, kabul ediyorum.</>
+                  : <><Link href="/kvkk" target="_blank" style={{ color: 'var(--blue2)' }}>KVKK Aydınlatma Metni&apos;ni</Link> okudum, kişisel verilerimin işlenmesine onay veriyorum.</>}
+              </span>
+            </label>
+
+            <button type="submit" disabled={loading || !kvkkAccepted} className="login-submit">
               {loading ? <Loader2 size={16} className="spin" /> : null}
               {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
             </button>
