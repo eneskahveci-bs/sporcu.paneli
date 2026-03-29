@@ -85,8 +85,14 @@ export async function proxy(request: NextRequest) {
       if (sub?.status === 'suspended' || sub?.status === 'cancelled') {
         return NextResponse.redirect(new URL('/suspended', request.url))
       }
-      // 1 saat cache
-      supabaseResponse.cookies.set('_sub_ok', '1', { maxAge: 3600, path: '/' })
+      // 1 saat cache — HttpOnly ve Secure ile güvenli
+      supabaseResponse.cookies.set('_sub_ok', '1', {
+        maxAge: 3600,
+        path: '/',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+      })
     }
   }
 

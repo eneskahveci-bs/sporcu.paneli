@@ -66,8 +66,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: athleteError.message }, { status: 500 })
   }
 
-  // 2. Create auth user (TC@sporcu.tc / last 6 digits)
-  const password = tc.slice(-6)
+  // 2. Create auth user (TC / must_change_password: true)
+  const password = tc  // İlk şifre = TC kendisi
   const { error: authError } = await adminSupabase.auth.admin.createUser({
     email: `${tc}@sporcu.tc`,
     password,
@@ -77,6 +77,7 @@ export async function POST(request: Request) {
       organization_id,
       athlete_id: athlete.id,
       full_name: `${first_name} ${last_name}`,
+      must_change_password: true,
     },
   })
 

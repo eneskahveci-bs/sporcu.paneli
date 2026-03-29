@@ -1,11 +1,14 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { checkEnvVars } from '@/lib/api-utils'
 import { sendWelcomeEmail } from '@/lib/email'
 
 // Sporcu için auth kullanıcısı oluşturur (admin yetkisi gerekir)
 // Email: {tc}@sporcu.tc | İlk Şifre: TC'nin kendisi (11 hane) | must_change_password: true
 export async function POST(request: Request) {
+  const env = checkEnvVars(['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'])
+  if (!env.ok) return env.response
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 

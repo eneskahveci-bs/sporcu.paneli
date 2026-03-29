@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { checkEnvVars } from '@/lib/api-utils'
 
 // Admin, sporcu veya antrenörün şifresini TC numarasına sıfırlar ve must_change_password: true yapar
 export async function POST(request: Request) {
@@ -11,7 +12,10 @@ export async function POST(request: Request) {
   if (user.user_metadata?.role !== 'admin') return NextResponse.json({ error: 'Yalnızca admin erişebilir' }, { status: 403 })
 
   const { type, id } = await request.json()  // type: 'athlete' | 'coach', id: veritabanı kaydı id'si
-  if (!type || !id) return NextResponse.json({ error: 'type ve id gerekli' }, { status: 400 })
+  if (!type || !id || !['athlete', 'coach'].includes(type)) return NextResponse.json({ error: 'Geçersiz parametre' }, { status: 400 })
+
+  const orgId = user.user_metadata?.organization_id
+  if (!orgId) return NextResponse.json({ error: 'Organizasyon bulunamadı' }, { status: 400 })
 
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,15 +23,17 @@ export async function POST(request: Request) {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  // TC ve auth_user_id'yi al
+  // TC ve auth_user_id'yi al — org izolasyonu ile
   const table = type === 'athlete' ? 'athletes' : 'coaches'
   const { data: record, error: fetchErr } = await admin
     .from(table)
-    .select('tc, auth_user_id, first_name, last_name')
+    .select('tc, auth_user_id, first_name, last_name, organization_id')
     .eq('id', id)
     .single()
 
   if (fetchErr || !record) return NextResponse.json({ error: 'Kayıt bulunamadı' }, { status: 404 })
+  // Org izolasyonu: kayıt bu admin'in organizasyonuna mı ait?
+  if (record.organization_id !== orgId) return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 })
   if (!record.auth_user_id) return NextResponse.json({ error: 'Bu kullanıcının henüz giriş hesabı yok' }, { status: 400 })
   if (!record.tc) return NextResponse.json({ error: 'TC kimlik numarası eksik' }, { status: 400 })
 

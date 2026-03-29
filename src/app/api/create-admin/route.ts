@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { checkEnvVars } from '@/lib/api-utils'
 
 // Admin kullanıcısı oluşturur — e-posta onayı gerekmez, anında giriş yapılabilir
 export async function POST(request: Request) {

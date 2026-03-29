@@ -27,7 +27,12 @@ export async function POST(request: Request) {
 
   if (!payment) return NextResponse.json({ error: 'Ödeme bulunamadı' }, { status: 404 })
 
+  // Org izolasyonu: ödeme bu admin'in organizasyonuna mı ait?
   const organization_id = user.user_metadata?.organization_id
+  if (payment.organization_id !== organization_id) {
+    return NextResponse.json({ error: 'Yetkisiz' }, { status: 403 })
+  }
+
   const { data: org } = await admin.from('organizations').select('name').eq('id', organization_id).single()
 
   const athlete = payment.athletes as { first_name: string; last_name: string; email?: string; parent_email?: string } | null

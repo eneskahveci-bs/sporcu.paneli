@@ -15,6 +15,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Eksik parametre' }, { status: 400 })
     }
 
+    // Güvenlik limitleri
+    if (recipients.length > 500) {
+      return NextResponse.json({ success: false, error: 'Tek seferde en fazla 500 alıcıya gönderilebilir' }, { status: 400 })
+    }
+    if (message.length > 1500) {
+      return NextResponse.json({ success: false, error: 'Mesaj çok uzun (maks 1500 karakter)' }, { status: 400 })
+    }
+    if (message.trim().length === 0) {
+      return NextResponse.json({ success: false, error: 'Mesaj boş olamaz' }, { status: 400 })
+    }
+
     // Get settings
     const { data: settings } = await supabase.from('settings').select('key, value').eq('organization_id', orgId)
     const get = (key: string) => settings?.find((s: { key: string; value: string }) => s.key === key)?.value || ''
