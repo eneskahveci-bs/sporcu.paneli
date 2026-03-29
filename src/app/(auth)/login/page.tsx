@@ -79,6 +79,18 @@ export default function LoginPage() {
 
       {/* Login Card */}
       <div className="login-container">
+        <div className="login-split-left">
+          <div className="login-brand">
+            <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>🏅</div>
+            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fff', marginBottom: '0.75rem', lineHeight: 1.2 }}>Spor Akademinizi<br />Profesyonelce Yönetin</h2>
+            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9375rem', lineHeight: 1.7, marginBottom: '2rem' }}>Sporcu takibi, ödeme yönetimi, yoklama sistemi ve daha fazlası tek platformda.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {['✓ TC kimlik doğrulama', '✓ Çoklu şube desteği', '✓ SMS & WhatsApp bildirimleri', '✓ KVKK uyumlu'].map(f => (
+                <div key={f} style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>{f}</div>
+              ))}
+            </div>
+          </div>
+        </div>
         <div className="login-card">
           <div className="login-card-header">
             <h1 className="login-card-title">Giriş Yap</h1>
@@ -209,9 +221,21 @@ export default function LoginPage() {
         .login-container {
           flex: 1;
           display: flex;
+          align-items: stretch;
+          justify-content: center;
+        }
+        .login-split-left {
+          flex: 1;
+          background: var(--grad);
+          display: flex;
           align-items: center;
           justify-content: center;
-          padding: 2rem 1rem;
+          padding: 3rem 2.5rem;
+          max-width: 420px;
+        }
+        .login-brand { max-width: 320px; }
+        @media (max-width: 768px) {
+          .login-split-left { display: none; }
         }
 
         /* Card */
@@ -219,11 +243,17 @@ export default function LoginPage() {
           width: 100%;
           max-width: 440px;
           background: var(--bg2);
-          border: 1px solid var(--border2);
-          border-radius: var(--radius);
-          box-shadow: var(--shadow);
-          overflow: hidden;
+          border-left: 1px solid var(--border2);
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 3rem 2.5rem;
+          box-shadow: none;
+          border-radius: 0;
           animation: fadeIn 0.2s ease;
+        }
+        @media (max-width: 768px) {
+          .login-card { border-radius: var(--radius); border: 1px solid var(--border2); box-shadow: var(--shadow); padding: 2rem 1.5rem; margin: 2rem 1rem; }
         }
         @keyframes fadeIn {
           from { opacity: 0; transform: translateY(12px); }

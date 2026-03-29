@@ -172,6 +172,7 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
         .sb-item-active {
           background: var(--grad) !important; color: #fff !important;
           font-weight: 600;
+          box-shadow: 0 4px 12px rgba(45,92,179,0.3);
         }
         .sb-item-active .sb-icon-circle { border-color: rgba(255,255,255,0.4); color: #fff; }
 
