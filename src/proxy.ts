@@ -48,7 +48,7 @@ export async function proxy(request: NextRequest) {
 
   // ── Süper Admin ────────────────────────────────────────────────────────────
   if (role === 'superadmin') {
-    if (!pathname.startsWith('/superadmin')) {
+    if (!pathname.startsWith('/superadmin') && !pathname.startsWith('/api/')) {
       return NextResponse.redirect(new URL('/superadmin', request.url))
     }
     return supabaseResponse
@@ -56,13 +56,13 @@ export async function proxy(request: NextRequest) {
 
   // ── Sporcu / Veli ──────────────────────────────────────────────────────────
   if (role === 'athlete' || role === 'parent') {
-    if (!pathname.startsWith('/portal')) return NextResponse.redirect(new URL('/portal', request.url))
+    if (!pathname.startsWith('/portal') && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL('/portal', request.url))
     return supabaseResponse
   }
 
   // ── Antrenör ───────────────────────────────────────────────────────────────
   if (role === 'coach') {
-    if (!pathname.startsWith('/antrenor')) return NextResponse.redirect(new URL('/antrenor', request.url))
+    if (!pathname.startsWith('/antrenor') && !pathname.startsWith('/api/')) return NextResponse.redirect(new URL('/antrenor', request.url))
     return supabaseResponse
   }
 
