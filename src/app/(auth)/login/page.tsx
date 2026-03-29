@@ -44,7 +44,7 @@ export default function LoginPage() {
       if (tab === 'coach' && role !== 'coach') {
         await supabase.auth.signOut(); setError('Bu hesap antrenör girişi için kayıtlı değil.'); return
       }
-      if (tab === 'admin' && role !== 'admin') {
+      if (tab === 'admin' && role !== 'admin' && role !== 'superadmin') {
         await supabase.auth.signOut(); setError('Bu hesap yönetici girişi için kayıtlı değil.'); return
       }
       if (role === 'athlete' || role === 'parent') {
