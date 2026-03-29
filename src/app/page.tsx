@@ -385,14 +385,6 @@ export default function LandingPage() {
               Demo İste
             </button>
           </div>
-          <div className="hero-stats">
-            {[{ v: '500+', l: 'Sporcu' }, { v: '50+', l: 'Akademi' }, { v: '99.9%', l: 'Uptime' }].map(s => (
-              <div key={s.l} className="hero-stat">
-                <div className="hero-stat-val">{s.v}</div>
-                <div className="hero-stat-lbl">{s.l}</div>
-              </div>
-            ))}
-          </div>
         </div>
         <div className="hero-visual">
           {/* Dashboard Mockup */}
@@ -526,9 +518,6 @@ export default function LandingPage() {
         .hero-title-accent { background: var(--grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
         .hero-subtitle { font-size: 1.0625rem; color: var(--text2); line-height: 1.7; max-width: 480px; margin-bottom: 1.75rem; }
         .hero-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2rem; }
-        .hero-stats { display: flex; gap: 2rem; }
-        .hero-stat-val { font-size: 1.375rem; font-weight: 800; color: var(--text); }
-        .hero-stat-lbl { font-size: 0.75rem; color: var(--text3); font-weight: 500; }
 
         /* Dashboard Mockup */
         .dashboard-mockup { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.3); }
