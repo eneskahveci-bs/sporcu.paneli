@@ -10,6 +10,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Athlete, Payment } from '@/types'
+import { AIReportButton } from '@/components/ui/AIReportButton'
 
 const STATUS_LABEL: Record<string, string> = { active: 'Aktif', inactive: 'Pasif', pending: 'Beklemede' }
 const STATUS_BADGE: Record<string, string> = { active: 'badge-green', inactive: 'badge-gray', pending: 'badge-yellow' }
@@ -154,7 +155,7 @@ export default function AthleteDetailPage() {
             {athlete.email && <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Mail size={12} /> {athlete.email}</span>}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           {[
             { label: 'Devam Oranı', value: `%${attendanceRate}`, color: attendanceRate > 70 ? 'var(--green)' : 'var(--red)' },
             { label: 'Toplam Borç', value: formatCurrency(totalDebt), color: totalDebt > 0 ? 'var(--red)' : 'var(--green)' },
@@ -165,6 +166,7 @@ export default function AthleteDetailPage() {
               <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>{s.label}</div>
             </div>
           ))}
+          <AIReportButton athleteId={athlete.id} athleteName={`${athlete.first_name} ${athlete.last_name}`} />
         </div>
       </div>
 

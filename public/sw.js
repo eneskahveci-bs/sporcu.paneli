@@ -1,5 +1,4 @@
-const CACHE_NAME = 'sporcu-paneli-v2'
-const OFFLINE_PAGE = '/offline.html'
+const CACHE_NAME = 'sporcu-paneli-v3'
 
 const PRECACHE = [
   '/',
@@ -43,31 +42,53 @@ self.addEventListener('fetch', event => {
         return response
       })
       .catch(() => caches.match(event.request).then(cached => cached || new Response(
-        '<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>🏅 Sporcu Paneli</h2><p>İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edin.</p></body></html>',
+        '<html><body style="font-family:sans-serif;text-align:center;padding:40px"><h2>Sporcu Paneli</h2><p>İnternet bağlantısı yok. Lütfen bağlantınızı kontrol edin.</p></body></html>',
         { headers: { 'Content-Type': 'text/html' } }
       )))
   )
 })
 
-// Push notification handling
+// ─── Push notification handling ────────────────────────────────
 self.addEventListener('push', event => {
   if (!event.data) return
-  const data = event.data.json()
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Sporcu Paneli', {
-      body: data.body || '',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-    })
-  )
+  let data = {}
+  try {
+    data = event.data.json()
+  } catch (e) {
+    data = { title: 'Sporcu Paneli', body: event.data.text() }
+  }
+  const title = data.title || 'Sporcu Paneli'
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: '/icons/icon-192.png',
+    tag: data.tag || 'sporcu-paneli',
+    data: { url: data.url || '/dashboard', ...(data.data || {}) },
+    requireInteraction: !!data.requireInteraction,
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
 })
 
 self.addEventListener('notificationclick', event => {
   event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard'
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then(list => {
-      if (list.length) return list[0].focus()
-      return clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if (client.url.includes(url) && 'focus' in client) return client.focus()
+      }
+      if (list.length && 'focus' in list[0]) {
+        list[0].navigate?.(url)
+        return list[0].focus()
+      }
+      return clients.openWindow(url)
     })
+  )
+})
+
+self.addEventListener('pushsubscriptionchange', event => {
+  event.waitUntil(
+    self.registration.pushManager.subscribe({ userVisibleOnly: true })
+      .then(() => fetch('/api/push/resubscribe', { method: 'POST' }).catch(() => {}))
   )
 })

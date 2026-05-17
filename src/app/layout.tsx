@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
+import { PWAInstallBanner } from "@/components/ui/PWAInstallBanner";
 import "./globals.css";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://sporcu-paneli.vercel.app'
@@ -152,13 +153,34 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
-                var theme = localStorage.getItem('theme') || 'dark';
-                document.documentElement.setAttribute('data-theme', theme);
+                try {
+                  var mode = localStorage.getItem('theme-mode') || localStorage.getItem('theme') || 'auto';
+                  var theme;
+                  if (mode === 'dark' || mode === 'light') {
+                    theme = mode;
+                  } else {
+                    theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+                  }
+                  document.documentElement.setAttribute('data-theme', theme);
+                } catch (e) {
+                  document.documentElement.setAttribute('data-theme', 'dark');
+                }
                 if ('serviceWorker' in navigator) {
                   window.addEventListener('load', function() {
                     navigator.serviceWorker.register('/sw.js').catch(function(){});
                   });
                 }
+                // PWA install promptu yakala
+                window.addEventListener('beforeinstallprompt', function(e) {
+                  e.preventDefault();
+                  window.__deferredPrompt = e;
+                  window.dispatchEvent(new CustomEvent('pwa-installable'));
+                });
+                // visitCount
+                try {
+                  var c = parseInt(localStorage.getItem('visitCount') || '0', 10);
+                  localStorage.setItem('visitCount', String(c + 1));
+                } catch (e) {}
               })();
             `,
           }}
@@ -166,6 +188,7 @@ export default function RootLayout({
       </head>
       <body>
         {children}
+        <PWAInstallBanner />
         <Toaster
           position="top-right"
           toastOptions={{

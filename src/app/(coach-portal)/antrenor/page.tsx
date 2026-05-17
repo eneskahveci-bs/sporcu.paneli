@@ -253,6 +253,9 @@ function CoachPortal() {
               <span className="badge badge-green" style={{ fontSize: '12px' }}>{allAthletes.length} Sporcu</span>
             </div>
           </div>
+          <a href="/antrenor/qr-scan" className="btn bp" style={{ textDecoration: 'none' }}>
+            📷 QR Tara
+          </a>
         </div>
 
         {/* Tabs */}

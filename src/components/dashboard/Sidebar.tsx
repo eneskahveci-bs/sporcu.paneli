@@ -6,6 +6,7 @@ import {
   Home, Calendar, ChevronDown, UserPlus, Users, UserCheck,
   Dumbbell, BookOpen, ClipboardCheck, CreditCard, BarChart3,
   Package, Bell, Settings, LogOut, Sun, Moon, Building2, MessageSquare,
+  Activity, Percent, FileSignature, Video, Trophy, ShoppingBag, Star, Flame,
 } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useTheme } from '@/providers/ThemeProvider'
@@ -19,15 +20,27 @@ const AKADEMI_ITEMS = [
   { href: '/classes', label: 'Sınıflar', icon: BookOpen },
   { href: '/attendance', label: 'Devam', icon: ClipboardCheck },
   { href: '/branches', label: 'Şubeler', icon: Building2 },
+  { href: '/fitness', label: 'Fitness Testleri', icon: Activity },
+  { href: '/consent-forms', label: 'Onay Formları', icon: FileSignature },
+  { href: '/leaderboard', label: 'Liderlik', icon: Flame },
 ]
 
 const MUHASEBE_ITEMS = [
   { href: '/payments', label: 'Ödemeler', icon: CreditCard },
+  { href: '/discounts', label: 'İndirim / Burs', icon: Percent },
   { href: '/reports', label: 'Finans / Rapor', icon: BarChart3 },
   { href: '/inventory', label: 'Envanter', icon: Package },
+  { href: '/store', label: 'Mağaza', icon: ShoppingBag },
   { href: '/messages', label: 'Mesajlar', icon: MessageSquare },
   { href: '/sms', label: 'Bildirimler', icon: Bell },
+  { href: '/notifications', label: 'Push Bildirimi', icon: Bell },
   { href: '/settings', label: 'Ayarlar', icon: Settings },
+]
+
+const ICERIK_ITEMS = [
+  { href: '/tournaments', label: 'Turnuvalar', icon: Trophy },
+  { href: '/videos', label: 'Videolar', icon: Video },
+  { href: '/sponsors', label: 'Sponsorlar', icon: Star },
 ]
 
 export function Sidebar({ isOpen }: { isOpen?: boolean }) {
@@ -37,9 +50,11 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
 
   const isAkademiActive = AKADEMI_ITEMS.some(i => pathname.startsWith(i.href))
   const isMuhasebeActive = MUHASEBE_ITEMS.some(i => pathname.startsWith(i.href))
+  const isIcerikActive = ICERIK_ITEMS.some(i => pathname.startsWith(i.href))
 
   const [akademiOpen, setAkademiOpen] = useState(true)
   const [muhasebeOpen, setMuhasebeOpen] = useState(true)
+  const [icerikOpen, setIcerikOpen] = useState(true)
 
   const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Kullanıcı'
   const role = user?.user_metadata?.role || 'admin'
@@ -108,6 +123,31 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
           {muhasebeOpen && (
             <div className="sb-group-items">
               {MUHASEBE_ITEMS.map(item => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <Link key={item.href} href={item.href} className={`sb-item${active ? ' sb-item-active' : ''}`}>
+                    <span className="sb-icon-circle"><Icon size={15} /></span>
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* İçerik Grubu */}
+        <div className="sb-group">
+          <button
+            className={`sb-group-header${isIcerikActive ? ' sb-group-header-active' : ''}`}
+            onClick={() => setIcerikOpen(o => !o)}
+          >
+            <span>İçerik</span>
+            <ChevronDown size={16} className={`sb-chevron${icerikOpen ? ' open' : ''}`} />
+          </button>
+          {icerikOpen && (
+            <div className="sb-group-items">
+              {ICERIK_ITEMS.map(item => {
                 const Icon = item.icon
                 const active = isActive(item.href)
                 return (

@@ -265,6 +265,7 @@ function PortalPage() {
           </span>
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <a href="/portal/features" className="header-btn" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'inherit' }} title="Ek Özellikler">⚙️</a>
           <button onClick={toggleTheme} className="header-btn">{theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}</button>
           <button onClick={signOut} className="header-btn"><LogOut size={15} /></button>
         </div>
