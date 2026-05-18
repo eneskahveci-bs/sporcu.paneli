@@ -75,6 +75,13 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior-y: none;
 }
 
 html {
@@ -1041,19 +1048,87 @@ textarea.form-input {
 ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
 
 /* ========================================
+   SIDEBAR — Mobile overlay (iOS safe + perf)
+   ======================================== */
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 49;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: backdropFade 0.18s ease-out;
+  touch-action: none;
+}
+
+.mobile-menu-btn { display: none; }
+
+@keyframes backdropFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Fixed sidebar — iOS notch */
+.sidebar {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-bottom: env(safe-area-inset-bottom);
+  will-change: transform;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Fixed header — iOS notch */
+.header {
+  padding-top: env(safe-area-inset-top);
+  padding-right: calc(24px + env(safe-area-inset-right));
+  height: calc(var(--header-height) + env(safe-area-inset-top));
+}
+
+/* iOS PWA standalone status bar */
+@media (display-mode: standalone) {
+  .header { padding-top: max(env(safe-area-inset-top), 8px); }
+}
+
+/* ========================================
    RESPONSIVE
    ======================================== */
 @media (max-width: 768px) {
   :root { --sidebar-width: 0px; }
-  .sidebar { transform: translateX(-260px); width: 260px; }
-  .sidebar.open { transform: translateX(0); }
+  .sidebar {
+    transform: translateX(-100%);
+    width: min(280px, 85vw);
+    z-index: 50;
+    transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .sidebar.open { transform: translateX(0); box-shadow: 0 20px 60px rgba(0,0,0,0.35); }
   .main-content { margin-left: 0; }
-  .header { left: 0; }
-  .page-content { padding: 16px; padding-top: calc(var(--header-height) + 16px); }
+  .header {
+    left: 0;
+    padding-left: calc(12px + env(safe-area-inset-left));
+    padding-right: calc(12px + env(safe-area-inset-right));
+    gap: 10px;
+  }
+  .mobile-menu-btn { display: flex !important; }
+  .header-search { display: none; }
+  .page-content { padding: 14px; padding-top: calc(var(--header-height) + env(safe-area-inset-top) + 14px); }
   .auth-card { padding: 28px 20px; }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .profile-header { flex-direction: column; text-align: center; }
   .profile-meta { justify-content: center; }
+}
+
+/* iOS: 16px altı input font-size = otomatik zoom — bunu engelle */
+@media (max-width: 768px) {
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Touch target boyutu — iOS HIG min 44px */
+@media (pointer: coarse) {
+  .header-btn, .sb-icon-btn, .btn { min-height: 40px; }
+  .header-btn { min-width: 40px; }
+  .sb-item { min-height: 44px; }
 }
 
 @media (max-width: 480px) {
@@ -1091,3 +1166,42 @@ textarea.form-input {
 .text-warning { color: var(--yellow); }
 .fw-600 { font-weight: 600; }
 .fw-700 { font-weight: 700; }
+
+/* ========================================
+   PERFORMANS / ACCESSIBILITY
+   ======================================== */
+.main-content { contain: layout paint; }
+.page-content { contain: layout style; }
+.sidebar-nav { contain: layout; }
+
+/* Modal animasyonu sadece açılışta — performans */
+.modal-overlay { contain: layout style paint; }
+
+/* Hareket azaltma tercihi */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Görsel asset content-visibility — viewport dışı kartları render etme */
+.card { content-visibility: auto; contain-intrinsic-size: auto 200px; }
+
+/* iOS: smooth scroll inertia ve overscroll color */
+.page-content {
+  overscroll-behavior-y: contain;
+}
+
+/* Buton geri besleme — iOS hızlı tap */
+button, a, [role='button'] {
+  touch-action: manipulation;
+}
+
+/* iOS Safari görüntü 100vh sorunu: dvh varsa kullan */
+@supports (height: 100dvh) {
+  .sidebar { height: 100dvh; }
+  .dashboard-layout { min-height: 100dvh; }
+}
