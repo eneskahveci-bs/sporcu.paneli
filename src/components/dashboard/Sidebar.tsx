@@ -43,7 +43,7 @@ const ICERIK_ITEMS = [
   { href: '/sponsors', label: 'Sponsorlar', icon: Star },
 ]
 
-export function Sidebar({ isOpen }: { isOpen?: boolean }) {
+export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const { user, signOut } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -63,7 +63,17 @@ export function Sidebar({ isOpen }: { isOpen?: boolean }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
   return (
-    <aside className={`sidebar${isOpen ? ' open' : ''}`}>
+    <aside
+      id="primary-sidebar"
+      className={`sidebar${isOpen ? ' open' : ''}`}
+      aria-label="Yan menü"
+      aria-hidden={isOpen ? undefined : false}
+      onClick={(e) => {
+        // Mobile: link tıklanınca sidebar'ı kapat
+        const target = e.target as HTMLElement
+        if (target.closest('a') && window.innerWidth <= 768) onClose?.()
+      }}
+    >
       {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-icon">🏅</div>

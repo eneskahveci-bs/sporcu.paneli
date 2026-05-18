@@ -6,6 +6,8 @@ import { formatDate } from '@/lib/utils/formatters'
 
 interface HeaderProps {
   title?: string
+  onMenuClick?: () => void
+  sidebarOpen?: boolean
 }
 
 type NotifType = 'payment_approval' | 'overdue' | 'pre_registration'
@@ -33,9 +35,8 @@ function addSeenIds(ids: string[]) {
   } catch { /* ignore */ }
 }
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, onMenuClick, sidebarOpen = false }: HeaderProps) {
   const supabase = createClient()
-  const [menuOpen, setMenuOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
@@ -164,13 +165,13 @@ export function Header({ title }: HeaderProps) {
     <>
       <header className="header">
         <button
-          className="header-btn"
-          style={{ display: 'none' }}
-          onClick={() => setMenuOpen(!menuOpen)}
-          aria-label="Menüyü aç/kapat"
-          id="mobile-menu-btn"
+          className="header-btn mobile-menu-btn"
+          onClick={onMenuClick}
+          aria-label={sidebarOpen ? 'Menüyü kapat' : 'Menüyü aç'}
+          aria-expanded={sidebarOpen}
+          aria-controls="primary-sidebar"
         >
-          {menuOpen ? <X size={18} /> : <Menu size={18} />}
+          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
 
         {title && (
@@ -283,17 +284,7 @@ export function Header({ title }: HeaderProps) {
         </div>
       </header>
 
-      {menuOpen && (
-        <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 35, display: 'none' }}
-          onClick={() => setMenuOpen(false)}
-        />
-      )}
-
       <style>{`
-        @media (max-width: 768px) {
-          #mobile-menu-btn { display: flex !important; }
-        }
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.6; }
