@@ -191,14 +191,20 @@ export default function RootLayout({
         <PWAInstallBanner />
         <Toaster
           position="top-right"
+          mobileOffset={{ bottom: '24px', left: '12px', right: '12px' }}
           toastOptions={{
             style: {
               background: 'var(--bg2)',
               color: 'var(--text)',
               border: '1px solid var(--border2)',
               borderRadius: '12px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
             },
+            duration: 4000,
           }}
+          closeButton
+          richColors={false}
+          theme="system"
         />
       </body>
     </html>

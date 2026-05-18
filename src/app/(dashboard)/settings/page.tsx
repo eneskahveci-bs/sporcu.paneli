@@ -5,6 +5,7 @@ import { Save, Loader2, Building2, Bell, Shield, CreditCard, Upload, Users, Tras
 import { PLAN_CONFIG, STATUS_CONFIG, type SubscriptionPlan, type SubscriptionStatus } from '@/types'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 
 export default function SettingsPage() {
   const supabase = createClient()
@@ -124,7 +125,7 @@ export default function SettingsPage() {
   }
 
   const removeAdmin = async (id: string, email: string) => {
-    if (!confirm(`${email} adlı yöneticiyi silmek istiyor musunuz?`)) return
+    if (!await confirmDialog({ title: 'Yönetici silinsin mi?', message: `${email} adlı yöneticinin hesabı silinecek.`, variant: 'danger', confirmText: 'Sil' })) return
     const { error } = await supabase.from('users').delete().eq('id', id)
     if (error) { toast.error('Hata: ' + error.message); return }
     toast.success('Yönetici kaldırıldı')

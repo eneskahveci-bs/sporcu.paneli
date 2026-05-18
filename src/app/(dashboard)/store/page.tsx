@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, ShoppingBag, Trash2, Edit, Package, ClipboardList } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatCurrency, formatDateTime } from '@/lib/utils/formatters'
 
 interface Product {
@@ -56,7 +57,7 @@ export default function StorePage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const deleteProduct = async (id: string) => {
-    if (!confirm('Ürün silinsin mi?')) return
+    if (!await confirmDialog({ title: 'Ürün silinsin mi?', variant: 'danger', confirmText: 'Sil' })) return
     await supabase.from('products').delete().eq('id', id)
     fetchData()
   }

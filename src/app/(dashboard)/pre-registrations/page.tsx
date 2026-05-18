@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatPhone } from '@/lib/utils/formatters'
 import { UserPlus, CheckCircle, XCircle, Clock, Eye, Trash2, RefreshCw, Edit, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface PreRegistration {
   id: string
@@ -299,7 +300,7 @@ export default function PreRegistrationsPage() {
   }
 
   const deleteReg = async (id: string) => {
-    if (!confirm('Bu ön kaydı silmek istediğinize emin misiniz?')) return
+    if (!await confirmDialog({ title: 'Ön kayıt silinsin mi?', message: 'Bu işlem geri alınamaz.', variant: 'danger', confirmText: 'Sil' })) return
     await supabase.from('pre_registrations').delete().eq('id', id)
     load()
     if (selected?.id === id) setSelected(null)

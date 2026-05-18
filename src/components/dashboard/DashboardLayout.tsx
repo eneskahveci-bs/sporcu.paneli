@@ -8,6 +8,9 @@ import { Header } from './Header'
 import { SessionTimeout } from '@/components/ui/SessionTimeout'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { FaviconUpdater } from '@/components/ui/FaviconUpdater'
+import { CommandPalette } from '@/components/ui/CommandPalette'
+import { ConfirmProvider, ConfirmGlobalBridge } from '@/components/ui/ConfirmDialog'
+import { SkipLink } from '@/components/ui/SkipLink'
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -18,10 +21,8 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const pathname = usePathname()
 
-  // Route değişince sidebar otomatik kapansın (mobile)
   useEffect(() => { setSidebarOpen(false) }, [pathname])
 
-  // Sidebar açıkken body scroll lock (mobile)
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (sidebarOpen && window.innerWidth <= 768) {
@@ -31,7 +32,6 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
     }
   }, [sidebarOpen])
 
-  // ESC ile kapansın
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setSidebarOpen(false) }
     window.addEventListener('keydown', onKey)
@@ -41,21 +41,26 @@ export function DashboardLayout({ children, title }: DashboardLayoutProps) {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <div className="dashboard-layout">
-          <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-          {sidebarOpen && (
-            <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
-          )}
-          <div className="main-content">
-            <Header title={title} onMenuClick={() => setSidebarOpen(o => !o)} sidebarOpen={sidebarOpen} />
-            <main className="page-content animate-fade-in">
-              {children}
-            </main>
+        <ConfirmProvider>
+          <ConfirmGlobalBridge />
+          <SkipLink />
+          <div className="dashboard-layout">
+            <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+            {sidebarOpen && (
+              <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} aria-hidden="true" />
+            )}
+            <div className="main-content">
+              <Header title={title} onMenuClick={() => setSidebarOpen(o => !o)} sidebarOpen={sidebarOpen} />
+              <main id="main-content" className="page-content animate-fade-in">
+                {children}
+              </main>
+            </div>
+            <SessionTimeout />
+            <OfflineBanner />
+            <FaviconUpdater />
+            <CommandPalette />
           </div>
-          <SessionTimeout />
-          <OfflineBanner />
-          <FaviconUpdater />
-        </div>
+        </ConfirmProvider>
       </AuthProvider>
     </ThemeProvider>
   )

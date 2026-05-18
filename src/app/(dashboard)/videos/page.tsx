@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, Video as VideoIcon, Trash2, Upload, Play } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDate } from '@/lib/utils/formatters'
 
 interface Video {
@@ -50,7 +51,7 @@ export default function VideosPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const handleDelete = async (v: Video) => {
-    if (!confirm('Video silinsin mi?')) return
+    if (!await confirmDialog({ title: 'Video silinsin mi?', message: `"${v.title}" kalıcı olarak silinecek.`, variant: 'danger', confirmText: 'Sil' })) return
     await supabase.storage.from('videos').remove([v.storage_path])
     await supabase.from('videos').delete().eq('id', v.id)
     toast.success('Silindi'); fetchData()

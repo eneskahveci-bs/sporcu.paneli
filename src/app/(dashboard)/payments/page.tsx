@@ -5,6 +5,7 @@ import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertT
 import { createClient } from '@/lib/supabase/client'
 import { formatCurrency, formatDate, getInitials } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Payment, Athlete } from '@/types'
 
 const STATUS_BADGE: Record<string, string> = { pending: 'badge-yellow', completed: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
@@ -80,7 +81,7 @@ export default function PaymentsPage() {
   }
 
   const rejectNotification = async (p: Payment) => {
-    if (!confirm(`${p.athlete_name} tarafından yapılan ${formatCurrency(p.amount)} tutarındaki bildirimi reddetmek istiyor musunuz?`)) return
+    if (!await confirmDialog({ title: 'Bildirim reddedilsin mi?', message: `${p.athlete_name} tarafından yapılan ${formatCurrency(p.amount)} tutarındaki ödeme bildirimi reddedilecek.`, variant: 'danger', confirmText: 'Reddet' })) return
     setApproving(p.id)
     const { error } = await supabase.from('payments').delete().eq('id', p.id)
     if (error) { toast.error('Hata: ' + error.message); setApproving(null); return }

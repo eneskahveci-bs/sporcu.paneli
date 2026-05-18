@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatDate, getInitials } from '@/lib/utils/formatters'
 import { validateTC } from '@/lib/utils/tc-validation'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Coach, Sport, Branch } from '@/types'
 
 export default function CoachesPage() {
@@ -54,7 +55,7 @@ export default function CoachesPage() {
   }
 
   const resetCoachPassword = async (coachId: string, name: string) => {
-    if (!confirm(`${name} şifresi TC numarasına sıfırlanacak. Emin misiniz?`)) return
+    if (!await confirmDialog({ title: 'Şifre sıfırlansın mı?', message: `${name} şifresi TC numarasına sıfırlanacak. Antrenör bir sonraki girişte yeni şifre belirleyecek.`, variant: 'warning', confirmText: 'Sıfırla' })) return
     const res = await window.fetch('/api/reset-user-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

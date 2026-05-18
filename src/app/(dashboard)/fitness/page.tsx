@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, Activity, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDate } from '@/lib/utils/formatters'
 
 const TEST_TYPES: Record<string, { label: string; unit: string }> = {
@@ -59,7 +60,7 @@ export default function FitnessPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Bu test kaydını silmek istediğinize emin misiniz?')) return
+    if (!await confirmDialog({ title: 'Test kaydı silinsin mi?', variant: 'danger', confirmText: 'Sil' })) return
     const { error } = await supabase.from('fitness_tests').delete().eq('id', id)
     if (error) { toast.error('Silinemedi'); return }
     toast.success('Silindi')
