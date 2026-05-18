@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, Trophy, Trash2, Eye, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDate } from '@/lib/utils/formatters'
 import Link from 'next/link'
 
@@ -47,7 +48,7 @@ export default function TournamentsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Turnuva silinsin mi? (Takımlar ve maçlar dahil)')) return
+    if (!await confirmDialog({ title: 'Turnuva silinsin mi?', message: 'Takımlar ve maçlar dahil tüm veriler silinir. Geri alınamaz.', variant: 'danger', confirmText: 'Turnuvayı Sil' })) return
     await supabase.from('tournaments').delete().eq('id', id)
     toast.success('Silindi'); fetchData()
   }

@@ -3,7 +3,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { Plus, Search, Download, Eye, Edit, Trash2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate, formatCurrency, calculateAge, getInitials } from '@/lib/utils/formatters'
+import { formatDate, formatCurrency, calculateAge } from '@/lib/utils/formatters'
+import { Avatar } from '@/components/ui/Avatar'
 import { validateTC } from '@/lib/utils/tc-validation'
 import { toast } from 'sonner'
 import type { Athlete, Sport, Class } from '@/types'
@@ -143,7 +144,7 @@ export default function AthletesPage() {
                 <tr key={a.id}>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div className="avatar avatar-sm">{getInitials(a.first_name, a.last_name)}</div>
+                      <Avatar name={`${a.first_name} ${a.last_name}`} size={32} />
                       <div>
                         <div style={{ fontWeight: 600 }}>{a.first_name} {a.last_name}</div>
                         <div className="ts text-faint">{a.email || '-'}</div>

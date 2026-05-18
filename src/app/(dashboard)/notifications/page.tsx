@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Bell, Send, Loader2, Users, CheckCircle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDateTime } from '@/lib/utils/formatters'
 
 interface Broadcast {
@@ -45,7 +46,7 @@ export default function NotificationsPage() {
       toast.error('Başlık ve mesaj gerekli')
       return
     }
-    if (!confirm(`${subscriberCount} aboneye bildirim gönderilecek. Onaylıyor musunuz?`)) return
+    if (!await confirmDialog({ title: 'Bildirim Gönder', message: `${subscriberCount} aboneye gönderilecek. Devam edilsin mi?`, variant: 'info', confirmText: 'Gönder' })) return
 
     setSending(true)
     try {

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { CreditCard, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 
 interface Recurring {
@@ -74,7 +75,7 @@ export function RecurringPaymentToggle({ athleteId, monthlyFee }: { athleteId: s
 
   const cancel = async () => {
     if (!rec) return
-    if (!confirm('Otomatik aidat iptal edilsin mi?')) return
+    if (!await confirmDialog({ title: 'Otomatik aidat iptal edilsin mi?', message: 'Bir sonraki çekim yapılmayacak.', variant: 'warning', confirmText: 'İptal Et' })) return
     setBusy(true)
     const { error } = await supabase.from('recurring_payments').update({ status: 'cancelled' }).eq('id', rec.id)
     setBusy(false)

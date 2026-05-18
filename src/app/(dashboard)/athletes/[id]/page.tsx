@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { Athlete, Payment } from '@/types'
 import { AIReportButton } from '@/components/ui/AIReportButton'
+import { Avatar } from '@/components/ui/Avatar'
 
 const STATUS_LABEL: Record<string, string> = { active: 'Aktif', inactive: 'Pasif', pending: 'Beklemede' }
 const STATUS_BADGE: Record<string, string> = { active: 'badge-green', inactive: 'badge-gray', pending: 'badge-yellow' }
@@ -144,7 +145,7 @@ export default function AthleteDetailPage() {
 
       {/* Profile Header */}
       <div className="profile-header">
-        <div className="profile-avatar">{getInitials(athlete.first_name, athlete.last_name)}</div>
+        <Avatar name={`${athlete.first_name} ${athlete.last_name}`} size={72} />
         <div style={{ flex: 1 }}>
           <div className="profile-name">{athlete.first_name} {athlete.last_name}</div>
           <div className="profile-meta">

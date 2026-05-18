@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, Star, Trash2, Edit, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 
 const TIER_LABEL: Record<string, { label: string; color: string }> = {
   platinum: { label: 'Platin', color: '#e5e7eb' },
@@ -43,7 +44,7 @@ export default function SponsorsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Sponsor silinsin mi?')) return
+    if (!await confirmDialog({ title: 'Sponsor silinsin mi?', message: 'Bu işlem geri alınamaz.', variant: 'danger', confirmText: 'Sil' })) return
     await supabase.from('sponsors').delete().eq('id', id)
     toast.success('Silindi'); fetchData()
   }

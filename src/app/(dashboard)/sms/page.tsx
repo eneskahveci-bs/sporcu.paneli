@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Send, MessageSquare, Users, CheckCircle, AlertCircle, Loader2, Check, X } from 'lucide-react'
 import { formatDate, formatDateTime, formatCurrency } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Payment } from '@/types'
 
 const TEMPLATES = [
@@ -76,7 +77,7 @@ export default function SmsPage() {
   }
 
   const rejectPayment = async (payment: Payment) => {
-    if (!confirm(`${payment.athlete_name} tarafından yapılan ${formatCurrency(payment.amount)} tutarındaki bildirimi reddetmek istiyor musunuz?`)) return
+    if (!await confirmDialog({ title: 'Bildirim reddedilsin mi?', message: `${payment.athlete_name} tarafından yapılan ${formatCurrency(payment.amount)} tutarındaki ödeme bildirimi reddedilecek.`, variant: 'danger', confirmText: 'Reddet' })) return
     setApproving(payment.id)
     const { error } = await supabase.from('payments').delete().eq('id', payment.id)
     if (error) { toast.error('Hata: ' + error.message); setApproving(null); return }
@@ -95,7 +96,7 @@ export default function SmsPage() {
     if (!form.message.trim()) { toast.error('Mesaj boş olamaz'); return }
     const recipients = getRecipients()
     if (!recipients.length) { toast.error('Alıcı seçilmedi'); return }
-    if (!confirm(`${recipients.length} kişiye mesaj gönderilecek. Onaylıyor musunuz?`)) return
+    if (!await confirmDialog({ title: 'Mesaj gönder', message: `${recipients.length} kişiye gönderilecek. Devam edilsin mi?`, variant: 'info', confirmText: 'Gönder' })) return
 
     setSending(true)
     try {

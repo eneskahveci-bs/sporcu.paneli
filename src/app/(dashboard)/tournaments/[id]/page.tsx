@@ -5,6 +5,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, Trash2, Save, ArrowLeft, Trophy } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/utils/formatters'
 
@@ -58,7 +59,7 @@ export default function TournamentDetailPage() {
   }
 
   const deleteTeam = async (tid: string) => {
-    if (!confirm('Takım silinsin mi?')) return
+    if (!await confirmDialog({ title: 'Takım silinsin mi?', variant: 'danger', confirmText: 'Sil' })) return
     await supabase.from('tournament_teams').delete().eq('id', tid)
     load()
   }
@@ -84,7 +85,7 @@ export default function TournamentDetailPage() {
   }
 
   const deleteMatch = async (mid: string) => {
-    if (!confirm('Maç silinsin mi?')) return
+    if (!await confirmDialog({ title: 'Maç silinsin mi?', variant: 'danger', confirmText: 'Sil' })) return
     await supabase.from('matches').delete().eq('id', mid)
     load()
   }

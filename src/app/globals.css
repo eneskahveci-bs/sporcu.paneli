@@ -1168,6 +1168,235 @@ textarea.form-input {
 .fw-700 { font-weight: 700; }
 
 /* ========================================
+   DESIGN TOKENS — Enhanced
+   ======================================== */
+:root {
+  /* Spacing scale */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Border radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Elevation (shadow) scale */
+  --elev-1: 0 1px 2px rgba(0,0,0,0.05);
+  --elev-2: 0 2px 6px rgba(0,0,0,0.08);
+  --elev-3: 0 6px 16px rgba(0,0,0,0.12);
+  --elev-4: 0 12px 32px rgba(0,0,0,0.18);
+
+  /* Disabled states */
+  --bg-disabled: var(--bg3);
+  --text-disabled: var(--text3);
+  --border-disabled: var(--border);
+
+  /* Focus ring */
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--blue2) 35%, transparent);
+}
+
+[data-theme='dark'] {
+  --elev-1: 0 1px 2px rgba(0,0,0,0.2);
+  --elev-2: 0 2px 6px rgba(0,0,0,0.3);
+  --elev-3: 0 6px 16px rgba(0,0,0,0.4);
+  --elev-4: 0 12px 32px rgba(0,0,0,0.55);
+}
+
+/* ========================================
+   FOCUS RINGS — A11y
+   ======================================== */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: 6px;
+}
+button:focus-visible,
+a:focus-visible,
+[role='button']:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-color: var(--blue2) !important;
+  box-shadow: var(--focus-ring) !important;
+}
+
+/* ========================================
+   MICROINTERACTIONS
+   ======================================== */
+.btn {
+  transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.99);
+}
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.15s ease;
+}
+
+/* Sıralı liste kartlarına hover animasyonu */
+.grid-2 .card:hover,
+.grid-3 .card:hover,
+.grid-4 .card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--elev-3);
+  border-color: var(--border2);
+}
+
+/* Stat card özel */
+.stat-card:hover {
+  border-color: var(--blue2) !important;
+  box-shadow: var(--elev-2);
+}
+
+/* ========================================
+   SKELETON LOADER
+   ======================================== */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg3) 0%,
+    color-mix(in srgb, var(--bg3) 50%, var(--bg4, var(--bg3))) 50%,
+    var(--bg3) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s infinite ease-in-out;
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ========================================
+   TABLE — Row hover, sticky header
+   ======================================== */
+.table tbody tr {
+  transition: background 0.1s ease;
+}
+.table tbody tr:hover {
+  background: color-mix(in srgb, var(--blue2) 4%, transparent);
+}
+.table thead {
+  position: sticky;
+  top: 0;
+  background: var(--bg2);
+  z-index: 2;
+}
+
+/* ========================================
+   BADGE — Improved scale
+   ======================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+.badge-sm { padding: 2px 7px; font-size: 10px; }
+.badge-gray { background: var(--bg3); color: var(--text2); }
+
+/* ========================================
+   FORM INPUT — Better focus
+   ======================================== */
+.form-input {
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+.form-input:hover:not(:focus):not(:disabled) {
+  border-color: var(--border2);
+}
+.form-input:disabled {
+  background: var(--bg-disabled);
+  color: var(--text-disabled);
+  cursor: not-allowed;
+}
+
+/* ========================================
+   MODAL — Bottom sheet on mobile
+   ======================================== */
+.modal-overlay {
+  align-items: flex-start;
+  padding-top: 10vh;
+}
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding-top: 0;
+  }
+  .modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 92vh;
+    animation: modalSheetIn 0.22s cubic-bezier(0.32, 0.72, 0, 1) !important;
+  }
+  @keyframes modalSheetIn {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+}
+
+/* ========================================
+   PAGE HEADER — Sticky on scroll
+   ======================================== */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+/* ========================================
+   SCROLLBAR — Subtle
+   ======================================== */
+* { scrollbar-width: thin; scrollbar-color: var(--border2) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text3); background-clip: padding-box; border: 2px solid transparent; }
+
+/* ========================================
+   ICONS — Consistent stroke
+   ======================================== */
+svg { flex-shrink: 0; }
+
+/* ========================================
    PERFORMANS / ACCESSIBILITY
    ======================================== */
 .main-content { contain: layout paint; }

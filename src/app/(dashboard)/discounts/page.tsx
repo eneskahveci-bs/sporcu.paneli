@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import { Plus, Loader2, Percent, Trash2, Users, Tag } from 'lucide-react'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDate } from '@/lib/utils/formatters'
 
 const TYPE_LABEL: Record<string, string> = {
@@ -63,13 +64,13 @@ export default function DiscountsPage() {
   useEffect(() => { fetchData() }, [fetchData])
 
   const deleteRule = async (id: string) => {
-    if (!confirm('Kural silinsin mi? (Bağlı sporcu indirimleri de silinir)')) return
+    if (!await confirmDialog({ title: 'Kural silinsin mi?', message: 'Bu kurala bağlı tüm sporcu indirim atamaları da silinir.', variant: 'danger', confirmText: 'Kuralı Sil' })) return
     await supabase.from('discount_rules').delete().eq('id', id)
     toast.success('Silindi'); fetchData()
   }
 
   const deleteAssignment = async (id: string) => {
-    if (!confirm('İndirim atamasını kaldır?')) return
+    if (!await confirmDialog({ title: 'İndirim atamasını kaldır?', variant: 'warning', confirmText: 'Kaldır' })) return
     await supabase.from('athlete_discounts').delete().eq('id', id)
     toast.success('Kaldırıldı'); fetchData()
   }

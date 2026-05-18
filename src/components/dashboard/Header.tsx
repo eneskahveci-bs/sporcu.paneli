@@ -37,7 +37,6 @@ function addSeenIds(ids: string[]) {
 
 export function Header({ title, onMenuClick, sidebarOpen = false }: HeaderProps) {
   const supabase = createClient()
-  const [search, setSearch] = useState('')
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<Notif[]>([])
   const [seenIds, setSeenIds] = useState<Set<string>>(new Set())
@@ -180,16 +179,24 @@ export function Header({ title, onMenuClick, sidebarOpen = false }: HeaderProps)
           </h1>
         )}
 
-        <div className="header-search">
-          <Search className="header-search-icon" />
-          <input
-            type="search"
-            placeholder="Ara..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Ara"
-          />
-        </div>
+        <button
+          className="header-search"
+          onClick={() => {
+            // Cmd+K command palette tetikle
+            const ev = new KeyboardEvent('keydown', { key: 'k', metaKey: true, ctrlKey: true, bubbles: true })
+            window.dispatchEvent(ev)
+          }}
+          aria-label="Komut paleti aç (Cmd+K)"
+          style={{ cursor: 'pointer', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: '0 12px 0 36px', height: 36, color: 'var(--text3)', fontSize: 13, textAlign: 'left', flex: 1, maxWidth: 360, position: 'relative', display: 'flex', alignItems: 'center', gap: 8 }}
+        >
+          <Search size={14} style={{ position: 'absolute', left: 11, color: 'var(--text3)' }} />
+          <span>Ara veya komut çalıştır…</span>
+          <kbd style={{
+            marginLeft: 'auto', fontSize: 10, padding: '2px 6px',
+            background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 4,
+            color: 'var(--text3)', fontFamily: '-apple-system, BlinkMacSystemFont, monospace',
+          }}>⌘ K</kbd>
+        </button>
 
         <div className="header-actions" style={{ position: 'relative' }}>
           <button className="header-btn" aria-label="Bildirimler" onClick={openPanel} style={{ position: 'relative' }}>
