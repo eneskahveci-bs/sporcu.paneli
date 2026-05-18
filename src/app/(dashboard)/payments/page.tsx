@@ -1,22 +1,43 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell, Printer } from 'lucide-react'
+import { Plus, Search, Download, CheckCircle, Loader2, TrendingUp, Clock, AlertTriangle, Check, X, Bell, Printer, ChevronDown, Users, List, ShoppingBag, CreditCard } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { formatCurrency, formatDate, getInitials } from '@/lib/utils/formatters'
+import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ui/ConfirmDialog'
+import { Avatar } from '@/components/ui/Avatar'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { SearchInput } from '@/components/ui/SearchInput'
 import type { Payment, Athlete } from '@/types'
 
 const STATUS_BADGE: Record<string, string> = { pending: 'badge-yellow', completed: 'badge-green', overdue: 'badge-red', cancelled: 'badge-gray' }
 const STATUS_LABEL: Record<string, string> = { pending: 'Bekliyor', completed: 'Ödendi', overdue: 'Gecikmiş', cancelled: 'İptal' }
 const METHOD_LABEL: Record<string, string> = { cash: 'Nakit', card: 'Kart', bank_transfer: 'Havale', paytr: 'Online' }
 
+interface OrderItem { product_name: string; quantity: number; unit_price: number }
+interface OrderRow {
+  id: string
+  athlete_id: string | null
+  total_amount: number
+  status: string
+  created_at: string
+  items: OrderItem[]
+}
+
+// Athlete + payments + orders birleşik satır
+interface AthleteWithTx extends Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'> {
+  branch_id?: string | null
+  class_id?: string | null
+  sport_id?: string | null
+}
+
 export default function PaymentsPage() {
   const supabase = createClient()
   const [payments, setPayments] = useState<Payment[]>([])
+  const [orders, setOrders] = useState<OrderRow[]>([])
   const [pendingApprovals, setPendingApprovals] = useState<Payment[]>([])
-  const [athletes, setAthletes] = useState<Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'>[]>([])
+  const [athletes, setAthletes] = useState<AthleteWithTx[]>([])
   const [org, setOrg] = useState<{ name: string; address?: string; phone?: string; logo?: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -25,20 +46,23 @@ export default function PaymentsPage() {
   const [showBulkModal, setShowBulkModal] = useState(false)
   const [approving, setApproving] = useState<string | null>(null)
   const [page, setPage] = useState(1)
+  const [view, setView] = useState<'list' | 'by-athlete'>('list')
   const PER_PAGE = 20
 
   const fetchData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     const orgId = user?.user_metadata?.organization_id
     setLoading(true)
-    const [{ data: p }, { data: a }, { data: orgData }] = await Promise.all([
+    const [{ data: p }, { data: a }, { data: orgData }, { data: ords }] = await Promise.all([
       supabase.from('payments').select('*').eq('organization_id', orgId).order('created_at', { ascending: false }),
-      supabase.from('athletes').select('id, first_name, last_name, monthly_fee').eq('organization_id', orgId).eq('status', 'active'),
+      supabase.from('athletes').select('id, first_name, last_name, monthly_fee, branch_id, class_id, sport_id').eq('organization_id', orgId).eq('status', 'active').order('first_name'),
       supabase.from('organizations').select('name, address, phone, logo').eq('id', orgId).single(),
+      supabase.from('orders').select('id, athlete_id, total_amount, status, created_at, items:order_items(product_name, quantity, unit_price)').eq('organization_id', orgId).order('created_at', { ascending: false }),
     ])
     setPayments(p || [])
+    setOrders((ords || []) as OrderRow[])
     setPendingApprovals((p || []).filter((pay: Payment) => pay.notification_status === 'pending_approval'))
-    setAthletes(a || [])
+    setAthletes((a || []) as AthleteWithTx[])
     setOrg(orgData)
     setLoading(false)
   }, [supabase])
@@ -206,6 +230,49 @@ ${p.description ? `<div class="row"><span>Açıklama</span><span>${p.description
         </div>
       )}
 
+      {/* View tabs */}
+      <div style={{ display: 'flex', gap: 2, marginBottom: 12, background: 'var(--bg3)', padding: 4, borderRadius: 10, width: 'fit-content' }}>
+        <button
+          onClick={() => setView('list')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', fontSize: 13, fontWeight: 600,
+            background: view === 'list' ? 'var(--bg2)' : 'transparent',
+            color: view === 'list' ? 'var(--text)' : 'var(--text3)',
+            border: 'none', borderRadius: 8, cursor: 'pointer',
+            boxShadow: view === 'list' ? 'var(--elev-1)' : 'none',
+            transition: 'all 0.15s',
+          }}
+        >
+          <List size={14} /> Tüm İşlemler
+        </button>
+        <button
+          onClick={() => setView('by-athlete')}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 14px', fontSize: 13, fontWeight: 600,
+            background: view === 'by-athlete' ? 'var(--bg2)' : 'transparent',
+            color: view === 'by-athlete' ? 'var(--text)' : 'var(--text3)',
+            border: 'none', borderRadius: 8, cursor: 'pointer',
+            boxShadow: view === 'by-athlete' ? 'var(--elev-1)' : 'none',
+            transition: 'all 0.15s',
+          }}
+        >
+          <Users size={14} /> Sporcu Bazlı
+        </button>
+      </div>
+
+      {view === 'by-athlete' ? (
+        <AthleteAccordionView
+          athletes={athletes}
+          payments={payments}
+          orders={orders}
+          search={search}
+          onSearchChange={setSearch}
+          onRefresh={fetchData}
+        />
+      ) : (
+      <>
       {/* Filters */}
       <div className="filter-bar">
         <div className="search-input-wrap">
@@ -307,6 +374,8 @@ ${p.description ? `<div class="row"><span>Açıklama</span><span>${p.description
           </div>
         )}
       </div>
+      </>
+      )}
 
       {showModal && <AddPaymentModal athletes={athletes} onClose={() => setShowModal(false)} onSave={() => { setShowModal(false); fetchData() }} />}
       {showBulkModal && <BulkPlanModal athletes={athletes} onClose={() => setShowBulkModal(false)} onSave={() => { setShowBulkModal(false); fetchData() }} />}
@@ -314,7 +383,234 @@ ${p.description ? `<div class="row"><span>Açıklama</span><span>${p.description
   )
 }
 
-function AddPaymentModal({ athletes, onClose, onSave }: { athletes: Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'>[]; onClose: () => void; onSave: () => void }) {
+// ════════════════════════════════════════════════════
+// SPORCU AKORDİYON GÖRÜNÜMÜ
+// ════════════════════════════════════════════════════
+function AthleteAccordionView({
+  athletes, payments, orders, search, onSearchChange, onRefresh,
+}: {
+  athletes: AthleteWithTx[]
+  payments: Payment[]
+  orders: OrderRow[]
+  search: string
+  onSearchChange: (s: string) => void
+  onRefresh: () => void
+}) {
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const supabase = createClient()
+
+  const toggle = (id: string) => {
+    setOpenIds(s => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  // Sporcuya göre payment+order gruplaması
+  const grouped = useMemo(() => {
+    const map = new Map<string, { payments: Payment[]; orders: OrderRow[]; debt: number; pending: number; completed: number; storeSpent: number }>()
+    athletes.forEach(a => {
+      map.set(a.id, { payments: [], orders: [], debt: 0, pending: 0, completed: 0, storeSpent: 0 })
+    })
+    payments.forEach(p => {
+      if (!p.athlete_id) return
+      const g = map.get(p.athlete_id)
+      if (!g) return
+      g.payments.push(p)
+      if (p.type === 'income') {
+        if (p.status === 'completed') g.completed += p.amount
+        else if (p.status === 'pending' || p.status === 'overdue') {
+          g.debt += p.amount; g.pending++
+        }
+      }
+    })
+    orders.forEach(o => {
+      if (!o.athlete_id) return
+      const g = map.get(o.athlete_id)
+      if (!g) return
+      g.orders.push(o)
+      g.storeSpent += o.total_amount
+    })
+    return map
+  }, [athletes, payments, orders])
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return athletes
+    const q = search.toLowerCase()
+    return athletes.filter(a => `${a.first_name} ${a.last_name}`.toLowerCase().includes(q))
+  }, [athletes, search])
+
+  const markPaid = async (id: string) => {
+    const { error } = await supabase.from('payments').update({ status: 'completed', paid_date: new Date().toISOString().slice(0, 10) }).eq('id', id)
+    if (error) { toast.error(error.message); return }
+    toast.success('Ödendi olarak işaretlendi')
+    onRefresh()
+  }
+
+  const expandAll = () => setOpenIds(new Set(filtered.map(a => a.id)))
+  const collapseAll = () => setOpenIds(new Set())
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <SearchInput value={search} onChange={onSearchChange} placeholder="Sporcu adıyla ara..." />
+        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          <button className="btn bs btn-sm" onClick={expandAll}>Hepsini Aç</button>
+          <button className="btn bs btn-sm" onClick={collapseAll}>Hepsini Kapat</button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <EmptyState icon={<Users size={28} />} title="Sporcu bulunamadı" description="Aramayla eşleşen aktif sporcu yok." />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filtered.map(a => {
+            const data = grouped.get(a.id)
+            const isOpen = openIds.has(a.id)
+            const totalTx = (data?.payments.length || 0) + (data?.orders.length || 0)
+            return (
+              <div key={a.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <button
+                  onClick={() => toggle(a.id)}
+                  aria-expanded={isOpen}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                    padding: '14px 16px', background: 'transparent', border: 'none',
+                    cursor: 'pointer', textAlign: 'left', color: 'var(--text)',
+                  }}
+                >
+                  <Avatar name={`${a.first_name} ${a.last_name}`} size={38} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{a.first_name} {a.last_name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                      {totalTx} işlem · Aylık {a.monthly_fee ? formatCurrency(a.monthly_fee) : '—'}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                    {(data?.debt || 0) > 0 && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Borç</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--red)' }}>{formatCurrency(data!.debt)}</div>
+                      </div>
+                    )}
+                    {(data?.completed || 0) > 0 && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Ödenen</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--green)' }}>{formatCurrency(data!.completed)}</div>
+                      </div>
+                    )}
+                    {(data?.storeSpent || 0) > 0 && (
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Mağaza</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--blue2)' }}>{formatCurrency(data!.storeSpent)}</div>
+                      </div>
+                    )}
+                    <ChevronDown
+                      size={18}
+                      color="var(--text3)"
+                      style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none' }}
+                    />
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg3)' }}>
+                    {totalTx === 0 ? (
+                      <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+                        Henüz işlem yok
+                      </div>
+                    ) : (
+                      <AthleteTimeline payments={data!.payments} orders={data!.orders} onMarkPaid={markPaid} />
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AthleteTimeline({ payments, orders, onMarkPaid }: { payments: Payment[]; orders: OrderRow[]; onMarkPaid: (id: string) => void }) {
+  // İkisini birleştirip tarihe göre sırala
+  type Row = { kind: 'payment'; data: Payment; ts: number } | { kind: 'order'; data: OrderRow; ts: number }
+  const rows: Row[] = [
+    ...payments.map(p => ({ kind: 'payment' as const, data: p, ts: new Date(p.created_at).getTime() })),
+    ...orders.map(o => ({ kind: 'order' as const, data: o, ts: new Date(o.created_at).getTime() })),
+  ].sort((a, b) => b.ts - a.ts)
+
+  return (
+    <div style={{ padding: '8px 12px' }}>
+      <table className="table" style={{ background: 'transparent' }}>
+        <thead>
+          <tr>
+            <th style={{ fontSize: 11 }}>Tip</th>
+            <th style={{ fontSize: 11 }}>Açıklama</th>
+            <th style={{ fontSize: 11 }}>Tarih</th>
+            <th style={{ fontSize: 11, textAlign: 'right' }}>Tutar</th>
+            <th style={{ fontSize: 11 }}>Durum</th>
+            <th style={{ fontSize: 11, textAlign: 'right' }}>İşlem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(r => {
+            if (r.kind === 'payment') {
+              const p = r.data
+              return (
+                <tr key={`p-${p.id}`}>
+                  <td>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+                      <CreditCard size={12} color="var(--blue2)" /> {p.category || 'Aidat'}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: 12 }}>{p.description || '-'}</td>
+                  <td style={{ fontSize: 12, color: 'var(--text3)' }}>{formatDate(p.due_date || p.created_at)}</td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: p.type === 'income' ? 'var(--green)' : 'var(--red)' }}>
+                    {p.type === 'expense' ? '-' : ''}{formatCurrency(p.amount)}
+                  </td>
+                  <td><span className={`badge badge-sm ${STATUS_BADGE[p.status]}`}>{STATUS_LABEL[p.status]}</span></td>
+                  <td style={{ textAlign: 'right' }}>
+                    {(p.status === 'pending' || p.status === 'overdue') && (
+                      <button className="btn bsu btn-xs" onClick={() => onMarkPaid(p.id)}>
+                        <CheckCircle size={11} /> Ödendi
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              )
+            }
+            const o = r.data
+            const orderLabel = o.items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || 'Sipariş'
+            return (
+              <tr key={`o-${o.id}`}>
+                <td>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
+                    <ShoppingBag size={12} color="#8b5cf6" /> Mağaza
+                  </span>
+                </td>
+                <td style={{ fontSize: 12 }}>{orderLabel}</td>
+                <td style={{ fontSize: 12, color: 'var(--text3)' }}>{formatDate(o.created_at)}</td>
+                <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--blue2)' }}>{formatCurrency(o.total_amount)}</td>
+                <td><span className={`badge badge-sm ${STATUS_BADGE[o.status] || 'badge-gray'}`}>{ORDER_STATUS_LABEL[o.status] || o.status}</span></td>
+                <td></td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  pending: 'Bekliyor', paid: 'Ödendi', preparing: 'Hazırlanıyor',
+  shipped: 'Kargoda', delivered: 'Teslim', cancelled: 'İptal',
+}
+
+function AddPaymentModal({ athletes, onClose, onSave }: { athletes: AthleteWithTx[]; onClose: () => void; onSave: () => void }) {
   const supabase = createClient()
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
@@ -423,84 +719,226 @@ function AddPaymentModal({ athletes, onClose, onSave }: { athletes: Pick<Athlete
   )
 }
 
-function BulkPlanModal({ athletes, onClose, onSave }: { athletes: Pick<Athlete, 'id' | 'first_name' | 'last_name' | 'monthly_fee'>[]; onClose: () => void; onSave: () => void }) {
+function BulkPlanModal({ athletes, onClose, onSave }: { athletes: AthleteWithTx[]; onClose: () => void; onSave: () => void }) {
   const supabase = createClient()
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
   const [dueDay, setDueDay] = useState(5)
+  const [months, setMonths] = useState(1)
   const [saving, setSaving] = useState(false)
+
+  // Sporcu seçimi
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set(athletes.filter(a => a.monthly_fee && a.monthly_fee > 0).map(a => a.id)))
+  const [search, setSearch] = useState('')
+  const [overrideFee, setOverrideFee] = useState('') // boş = sporcunun monthly_fee'si
 
   const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık']
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return athletes
+    const q = search.toLowerCase()
+    return athletes.filter(a => `${a.first_name} ${a.last_name}`.toLowerCase().includes(q))
+  }, [athletes, search])
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(s => {
+      const next = new Set(s)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const selectAllFiltered = () => setSelectedIds(s => {
+    const next = new Set(s)
+    filtered.forEach(a => next.add(a.id))
+    return next
+  })
+
+  const clearAll = () => setSelectedIds(new Set())
+  const selectOnlyWithFee = () => setSelectedIds(new Set(athletes.filter(a => a.monthly_fee && a.monthly_fee > 0).map(a => a.id)))
+
+  const selected = athletes.filter(a => selectedIds.has(a.id))
+  const totalAmount = selected.reduce((s, a) => s + (overrideFee ? parseFloat(overrideFee) : (a.monthly_fee || 0)), 0)
+
   const handleCreate = async () => {
-    const athletesWithFee = athletes.filter(a => a.monthly_fee && a.monthly_fee > 0)
-    if (!athletesWithFee.length) { toast.error('Aylık ücreti olan aktif sporcu yok'); return }
+    if (!selected.length) { toast.error('En az bir sporcu seçin'); return }
+    if (!overrideFee && selected.some(a => !a.monthly_fee || a.monthly_fee <= 0)) {
+      toast.error('Seçili sporculardan bazılarının aylık ücreti tanımsız. Sabit tutar girin veya o sporcuları çıkarın.')
+      return
+    }
     setSaving(true)
     const { data: { user } } = await supabase.auth.getUser()
     const orgId = user?.user_metadata?.organization_id
-    const dueDate = `${year}-${String(month).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
 
-    const payments = athletesWithFee.map(a => ({
-      organization_id: orgId,
-      athlete_id: a.id,
-      athlete_name: `${a.first_name} ${a.last_name}`,
-      amount: a.monthly_fee,
-      type: 'income',
-      category: 'Aidat',
-      description: `${MONTHS[month - 1]} ${year} Aidatı`,
-      status: 'pending',
-      due_date: dueDate,
-      method: 'cash',
-      source: 'plan',
-      created_by: user?.id,
-    }))
+    const payments: Record<string, unknown>[] = []
+    for (let i = 0; i < months; i++) {
+      const m = ((month - 1 + i) % 12) + 1
+      const y = year + Math.floor((month - 1 + i) / 12)
+      const dueDate = `${y}-${String(m).padStart(2, '0')}-${String(dueDay).padStart(2, '0')}`
+      selected.forEach(a => {
+        const amount = overrideFee ? parseFloat(overrideFee) : a.monthly_fee
+        if (!amount) return
+        payments.push({
+          organization_id: orgId,
+          athlete_id: a.id,
+          athlete_name: `${a.first_name} ${a.last_name}`,
+          amount,
+          type: 'income',
+          category: 'Aidat',
+          description: `${MONTHS[m - 1]} ${y} Aidatı`,
+          status: 'pending',
+          due_date: dueDate,
+          method: 'cash',
+          source: 'plan',
+          created_by: user?.id,
+        })
+      })
+    }
 
     const { error } = await supabase.from('payments').insert(payments)
     setSaving(false)
     if (error) { toast.error('Hata: ' + error.message); return }
-    toast.success(`${athletesWithFee.length} sporcu için ödeme planı oluşturuldu!`)
+    toast.success(`${selected.length} sporcu × ${months} ay = ${payments.length} ödeme planı oluşturuldu`)
     onSave()
   }
 
+  const allFilteredSelected = filtered.length > 0 && filtered.every(a => selectedIds.has(a.id))
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={saving ? undefined : onClose}>
+      <div className="modal" style={{ maxWidth: 680, maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2 className="modal-title">Toplu Ödeme Planı</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: '20px' }}>×</button>
+          <button onClick={onClose} aria-label="Kapat" style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 20 }}>×</button>
         </div>
-        <div className="modal-body">
-          <p style={{ color: 'var(--text2)', marginBottom: '16px', fontSize: '14px' }}>
-            Aylık ücreti tanımlı tüm aktif sporcular ({athletes.filter(a => a.monthly_fee).length} sporcu) için ödeme planı oluşturulacak.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div className="grid-2">
+
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16, overflow: 'auto' }}>
+          {/* Plan ayarları */}
+          <div style={{ background: 'var(--bg3)', padding: 14, borderRadius: 10 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Plan Ayarları
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
               <div className="form-group">
-                <label className="form-label">Ay</label>
+                <label className="form-label">Başlangıç Ay</label>
                 <select className="form-select" value={month} onChange={e => setMonth(parseInt(e.target.value))}>
                   {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Yıl</label>
-                <input type="number" className="form-input" value={year} onChange={e => setYear(parseInt(e.target.value))} min="2024" max="2030" />
+                <input type="number" className="form-input" value={year} onChange={e => setYear(parseInt(e.target.value))} min={2024} max={2030} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Kaç Ay</label>
+                <select className="form-select" value={months} onChange={e => setMonths(parseInt(e.target.value))}>
+                  {[1, 2, 3, 6, 12].map(n => <option key={n} value={n}>{n} ay</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Ödeme Günü</label>
+                <input type="number" className="form-input" value={dueDay} onChange={e => setDueDay(parseInt(e.target.value))} min={1} max={28} />
               </div>
             </div>
-            <div className="form-group">
-              <label className="form-label">Son Ödeme Günü</label>
-              <input type="number" className="form-input" value={dueDay} onChange={e => setDueDay(parseInt(e.target.value))} min="1" max="28" />
-              <div className="ts text-faint" style={{ marginTop: '4px' }}>Her ayın kaçında ödenmeli?</div>
+            <div className="form-group" style={{ marginTop: 10 }}>
+              <label className="form-label">Sabit Tutar (boş = sporcu aylık ücreti)</label>
+              <input type="number" step="0.01" className="form-input" value={overrideFee} onChange={e => setOverrideFee(e.target.value)} placeholder="Boş bırak → her sporcu kendi aylık ücretiyle" />
+            </div>
+          </div>
+
+          {/* Sporcu seçimi */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Sporcu Seçimi ({selectedIds.size}/{athletes.length})
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button type="button" className="btn bs btn-xs" onClick={selectAllFiltered}>Görüneni Seç</button>
+                <button type="button" className="btn bs btn-xs" onClick={selectOnlyWithFee}>Ücretli Olanları</button>
+                <button type="button" className="btn bs btn-xs" onClick={clearAll}>Temizle</button>
+              </div>
+            </div>
+
+            <SearchInput value={search} onChange={setSearch} placeholder="Sporcu adı ara..." />
+
+            <div style={{
+              marginTop: 10,
+              maxHeight: 260, overflowY: 'auto',
+              border: '1px solid var(--border)', borderRadius: 8,
+              background: 'var(--bg)',
+            }}>
+              <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg2)', position: 'sticky', top: 0 }}>
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={() => allFilteredSelected ? filtered.forEach(a => toggleOne(a.id)) : selectAllFiltered()}
+                  aria-label="Tümünü seç"
+                />
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>
+                  {allFilteredSelected ? 'Tümünü Kaldır' : `Görüneni Seç (${filtered.length})`}
+                </span>
+              </div>
+              {filtered.length === 0 ? (
+                <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Sporcu bulunamadı</div>
+              ) : (
+                filtered.map(a => {
+                  const checked = selectedIds.has(a.id)
+                  const hasFee = !!(a.monthly_fee && a.monthly_fee > 0)
+                  return (
+                    <label
+                      key={a.id}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '8px 12px', borderBottom: '1px solid var(--border)',
+                        cursor: 'pointer', fontSize: 13,
+                        background: checked ? 'color-mix(in srgb, var(--blue2) 6%, transparent)' : 'transparent',
+                      }}
+                    >
+                      <input type="checkbox" checked={checked} onChange={() => toggleOne(a.id)} />
+                      <Avatar name={`${a.first_name} ${a.last_name}`} size={28} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>{a.first_name} {a.last_name}</div>
+                        <div style={{ fontSize: 11, color: hasFee ? 'var(--text3)' : 'var(--red)' }}>
+                          {hasFee ? formatCurrency(a.monthly_fee!) + ' / ay' : 'Aylık ücret tanımsız'}
+                        </div>
+                      </div>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Özet */}
+          <div style={{ padding: 12, background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 10, fontSize: 13 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--text2)' }}>Seçili sporcu:</span>
+              <strong>{selected.length}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ color: 'var(--text2)' }}>Plan dönemi:</span>
+              <strong>{months} ay</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ color: 'var(--text2)' }}>Toplam kayıt:</span>
+              <strong>{selected.length * months} adet</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(34,197,94,0.2)' }}>
+              <span style={{ color: 'var(--text2)' }}>Aylık brüt gelir:</span>
+              <strong style={{ color: 'var(--green)' }}>{formatCurrency(totalAmount)}</strong>
             </div>
           </div>
         </div>
+
         <div className="modal-footer">
-          <button className="btn bs" onClick={onClose}>İptal</button>
-          <button className="btn bp" onClick={handleCreate} disabled={saving}>
-            {saving ? <Loader2 size={15} /> : null} {saving ? 'Oluşturuluyor...' : 'Plan Oluştur'}
+          <button className="btn bs" onClick={onClose} disabled={saving}>İptal</button>
+          <button className="btn bp" onClick={handleCreate} disabled={saving || selected.length === 0}>
+            {saving ? <Loader2 size={15} className="spin" /> : null} {saving ? 'Oluşturuluyor...' : `${selected.length} Sporcu × ${months} Ay Plan Oluştur`}
           </button>
         </div>
       </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} .spin{animation:spin 1s linear infinite}`}</style>
     </div>
   )
 }
