@@ -7,6 +7,7 @@ import {
   Dumbbell, BookOpen, ClipboardCheck, CreditCard, BarChart3,
   Package, Bell, Settings, LogOut, Sun, Moon, Building2, MessageSquare,
   Activity, Percent, FileSignature, Video, Trophy, ShoppingBag, Star, Flame,
+  Receipt, Wallet, Truck, FileText, Target, PiggyBank, BellRing, FileSpreadsheet,
 } from 'lucide-react'
 import { useAuth } from '@/providers/AuthProvider'
 import { useTheme } from '@/providers/ThemeProvider'
@@ -27,20 +28,34 @@ const AKADEMI_ITEMS = [
 
 const MUHASEBE_ITEMS = [
   { href: '/payments', label: 'Ödemeler', icon: CreditCard },
+  { href: '/expenses', label: 'Giderler', icon: Receipt },
+  { href: '/accounts', label: 'Kasa & Banka', icon: Wallet },
+  { href: '/suppliers', label: 'Tedarikçiler', icon: Truck },
+  { href: '/invoices', label: 'Faturalar', icon: FileText },
   { href: '/discounts', label: 'İndirim / Burs', icon: Percent },
-  { href: '/reports', label: 'Finans / Rapor', icon: BarChart3 },
-  { href: '/inventory', label: 'Envanter', icon: Package },
-  { href: '/store', label: 'Mağaza', icon: ShoppingBag },
-  { href: '/messages', label: 'Mesajlar', icon: MessageSquare },
-  { href: '/sms', label: 'Bildirimler', icon: Bell },
-  { href: '/notifications', label: 'Push Bildirimi', icon: Bell },
-  { href: '/settings', label: 'Ayarlar', icon: Settings },
+  { href: '/reminders', label: 'Hatırlatmalar', icon: BellRing },
+]
+
+const FINANS_ITEMS = [
+  { href: '/finance', label: 'Finansal Raporlar', icon: BarChart3 },
+  { href: '/budget', label: 'Bütçe', icon: Target },
+  { href: '/reconciliation', label: 'Banka Mutabakatı', icon: FileSpreadsheet },
+  { href: '/reports', label: 'Özet Rapor', icon: PiggyBank },
 ]
 
 const ICERIK_ITEMS = [
   { href: '/tournaments', label: 'Turnuvalar', icon: Trophy },
   { href: '/videos', label: 'Videolar', icon: Video },
   { href: '/sponsors', label: 'Sponsorlar', icon: Star },
+  { href: '/store', label: 'Mağaza', icon: ShoppingBag },
+]
+
+const SISTEM_ITEMS = [
+  { href: '/inventory', label: 'Envanter', icon: Package },
+  { href: '/messages', label: 'Mesajlar', icon: MessageSquare },
+  { href: '/sms', label: 'SMS', icon: Bell },
+  { href: '/notifications', label: 'Push Bildirimi', icon: Bell },
+  { href: '/settings', label: 'Ayarlar', icon: Settings },
 ]
 
 export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () => void }) {
@@ -50,11 +65,15 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
 
   const isAkademiActive = AKADEMI_ITEMS.some(i => pathname.startsWith(i.href))
   const isMuhasebeActive = MUHASEBE_ITEMS.some(i => pathname.startsWith(i.href))
+  const isFinansActive = FINANS_ITEMS.some(i => pathname.startsWith(i.href))
   const isIcerikActive = ICERIK_ITEMS.some(i => pathname.startsWith(i.href))
+  const isSistemActive = SISTEM_ITEMS.some(i => pathname.startsWith(i.href))
 
   const [akademiOpen, setAkademiOpen] = useState(true)
   const [muhasebeOpen, setMuhasebeOpen] = useState(true)
+  const [finansOpen, setFinansOpen] = useState(true)
   const [icerikOpen, setIcerikOpen] = useState(true)
+  const [sistemOpen, setSistemOpen] = useState(true)
 
   const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Kullanıcı'
   const role = user?.user_metadata?.role || 'admin'
@@ -146,6 +165,31 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
           )}
         </div>
 
+        {/* Finans & Rapor Grubu */}
+        <div className="sb-group">
+          <button
+            className={`sb-group-header${isFinansActive ? ' sb-group-header-active' : ''}`}
+            onClick={() => setFinansOpen(o => !o)}
+          >
+            <span>Finans & Rapor</span>
+            <ChevronDown size={16} className={`sb-chevron${finansOpen ? ' open' : ''}`} />
+          </button>
+          {finansOpen && (
+            <div className="sb-group-items">
+              {FINANS_ITEMS.map(item => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <Link key={item.href} href={item.href} className={`sb-item${active ? ' sb-item-active' : ''}`}>
+                    <span className="sb-icon-circle"><Icon size={15} /></span>
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
         {/* İçerik Grubu */}
         <div className="sb-group">
           <button
@@ -158,6 +202,31 @@ export function Sidebar({ isOpen, onClose }: { isOpen?: boolean; onClose?: () =>
           {icerikOpen && (
             <div className="sb-group-items">
               {ICERIK_ITEMS.map(item => {
+                const Icon = item.icon
+                const active = isActive(item.href)
+                return (
+                  <Link key={item.href} href={item.href} className={`sb-item${active ? ' sb-item-active' : ''}`}>
+                    <span className="sb-icon-circle"><Icon size={15} /></span>
+                    <span>{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Sistem Grubu */}
+        <div className="sb-group">
+          <button
+            className={`sb-group-header${isSistemActive ? ' sb-group-header-active' : ''}`}
+            onClick={() => setSistemOpen(o => !o)}
+          >
+            <span>Sistem</span>
+            <ChevronDown size={16} className={`sb-chevron${sistemOpen ? ' open' : ''}`} />
+          </button>
+          {sistemOpen && (
+            <div className="sb-group-items">
+              {SISTEM_ITEMS.map(item => {
                 const Icon = item.icon
                 const active = isActive(item.href)
                 return (

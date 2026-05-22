@@ -29,10 +29,20 @@ const COMMANDS: CommandItem[] = [
 
   // Muhasebe
   { id: 'payments', label: 'Ödemeler', href: '/payments', group: 'Muhasebe', keywords: 'odeme payment aidat', icon: '💳' },
+  { id: 'expenses', label: 'Giderler', href: '/expenses', group: 'Muhasebe', keywords: 'gider expense masraf harcama', icon: '🧾' },
+  { id: 'accounts', label: 'Kasa & Banka', href: '/accounts', group: 'Muhasebe', keywords: 'kasa banka hesap nakit bakiye', icon: '💰' },
+  { id: 'suppliers', label: 'Tedarikçiler', href: '/suppliers', group: 'Muhasebe', keywords: 'tedarikci cari supplier firma', icon: '🚚' },
+  { id: 'invoices', label: 'Faturalar', href: '/invoices', group: 'Muhasebe', keywords: 'fatura makbuz invoice kdv', icon: '📄' },
   { id: 'discounts', label: 'İndirim / Burs', href: '/discounts', group: 'Muhasebe', keywords: 'indirim burs kardes', icon: '%' },
-  { id: 'reports', label: 'Raporlar', href: '/reports', group: 'Muhasebe', keywords: 'rapor finans report', icon: '📊' },
-  { id: 'inventory', label: 'Envanter', href: '/inventory', group: 'Muhasebe', keywords: 'envanter inventory stok', icon: '📦' },
-  { id: 'store', label: 'Mağaza', href: '/store', group: 'Muhasebe', keywords: 'magaza store shop', icon: '🛒' },
+  { id: 'reminders', label: 'Hatırlatmalar', href: '/reminders', group: 'Muhasebe', keywords: 'hatirlatma reminder tahsilat gecikme', icon: '🔔' },
+
+  // Finans & Rapor
+  { id: 'finance', label: 'Finansal Raporlar', href: '/finance', group: 'Finans & Rapor', keywords: 'finans rapor gelir tablosu nakit akis yaslandirma tahsilat', icon: '📊' },
+  { id: 'budget', label: 'Bütçe', href: '/budget', group: 'Finans & Rapor', keywords: 'butce budget hedef plan', icon: '🎯' },
+  { id: 'reconciliation', label: 'Banka Mutabakatı', href: '/reconciliation', group: 'Finans & Rapor', keywords: 'mutabakat banka ekstre eslestirme', icon: '🧮' },
+  { id: 'reports', label: 'Özet Rapor', href: '/reports', group: 'Finans & Rapor', keywords: 'rapor ozet report', icon: '🐷' },
+  { id: 'inventory', label: 'Envanter', href: '/inventory', group: 'Sistem', keywords: 'envanter inventory stok', icon: '📦' },
+  { id: 'store', label: 'Mağaza', href: '/store', group: 'İçerik', keywords: 'magaza store shop', icon: '🛒' },
 
   // İletişim
   { id: 'messages', label: 'Mesajlar', href: '/messages', group: 'İletişim', keywords: 'mesaj message', icon: '💬' },
