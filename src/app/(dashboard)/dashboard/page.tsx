@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { StatsCard } from '@/components/dashboard/StatsCard'
-import { Users, CreditCard, TrendingUp, AlertTriangle, UserCheck, Activity } from 'lucide-react'
+import { Users, CreditCard, TrendingUp, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils/formatters'
 
 export default async function DashboardPage() {
@@ -82,7 +83,7 @@ export default async function DashboardPage() {
         <div className="card">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <h2 className="m-tit">Son Kayıtlar</h2>
-            <a href="/athletes" style={{ fontSize: '13px', color: 'var(--blue2)', textDecoration: 'none' }}>Tümünü Gör →</a>
+            <Link href="/athletes" style={{ fontSize: '13px', color: 'var(--blue2)', textDecoration: 'none' }}>Tümünü Gör →</Link>
           </div>
           {recentAthletes?.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

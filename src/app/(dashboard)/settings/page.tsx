@@ -10,6 +10,7 @@ import { confirmDialog } from '@/components/ui/ConfirmDialog'
 export default function SettingsPage() {
   const supabase = createClient()
   const [tab, setTab] = useState(0)
+  const [nowMs] = useState(() => Date.now())
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [org, setOrg] = useState({ name: '', phone: '', email: '', address: '', city: '', logo: '', bank_name: '', account_name: '', iban: '' })
@@ -352,7 +353,7 @@ export default function SettingsPage() {
                     const planCfg = PLAN_CONFIG[plan] || PLAN_CONFIG.trial
                     const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.trial
                     const endDate = subscription.current_period_end || subscription.trial_ends_at
-                    const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / 86400000) : null
+                    const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - nowMs) / 86400000) : null
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>

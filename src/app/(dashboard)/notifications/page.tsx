@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
-import { Bell, Send, Loader2, Users, CheckCircle, XCircle } from 'lucide-react'
+import { Bell, Send, Loader2, CheckCircle, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import { formatDateTime } from '@/lib/utils/formatters'

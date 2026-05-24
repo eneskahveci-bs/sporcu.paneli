@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
-import { TrendingUp, TrendingDown, Wallet, AlertTriangle, Download } from 'lucide-react'
+import { TrendingUp, TrendingDown, Wallet, Download } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { StatsSkeleton } from '@/components/ui/Skeleton'
 import { EmptyState } from '@/components/ui/EmptyState'
