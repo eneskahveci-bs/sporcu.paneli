@@ -56,11 +56,19 @@ function LoginPage() {
       let result
 
       if (loginType === 'tc') {
-        // TC ile giriş - email olarak tc@domain kullan
+        // TC ile giriş: sporcu (@sporcu.tc) ve antrenör (@antrenor.tc) hesaplarının
+        // ikisi de aynı TC alanından girebilsin. Önce sporcu, tutmazsa antrenör denenir.
+        // Doğru şifre yalnızca doğru hesapla eşleştiği için karışıklık olmaz.
         result = await supabase.auth.signInWithPassword({
           email: `${tc}@sporcu.tc`,
           password,
         })
+        if (result.error?.message.includes('Invalid login')) {
+          result = await supabase.auth.signInWithPassword({
+            email: `${tc}@antrenor.tc`,
+            password,
+          })
+        }
       } else {
         result = await supabase.auth.signInWithPassword({ email, password })
       }
