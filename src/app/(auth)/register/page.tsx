@@ -172,8 +172,8 @@ function RegisterPage() {
           <Link href="/login" style={{ color: 'var(--blue2)', textDecoration: 'none', fontWeight: 600 }}>Giriş Yap</Link>
         </p>
         <p style={{ fontSize: '11px', color: 'var(--text3)', textAlign: 'center', marginTop: '8px', lineHeight: 1.5 }}>
-          Kayıt olarak <Link href="/kullanim-kosullari" style={{ color: 'var(--blue2)' }}>Kullanım Koşulları</Link>'nı ve{' '}
-          <Link href="/kvkk" style={{ color: 'var(--blue2)' }}>KVKK</Link>'yı kabul etmiş olursunuz.
+          Kayıt olarak <Link href="/kullanim-kosullari" style={{ color: 'var(--blue2)' }}>Kullanım Koşulları</Link>&apos;nı ve{' '}
+          <Link href="/kvkk" style={{ color: 'var(--blue2)' }}>KVKK</Link>&apos;yı kabul etmiş olursunuz.
         </p>
       </div>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>

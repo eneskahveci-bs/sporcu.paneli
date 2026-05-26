@@ -31,6 +31,7 @@ function SuperAdminPage() {
   const { theme, toggleTheme } = useTheme()
   const [orgs, setOrgs] = useState<OrgRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [nowMs] = useState(() => Date.now())
   const [search, setSearch] = useState('')
   const [subModal, setSubModal] = useState<OrgRow | null>(null)
   const [newAcademyModal, setNewAcademyModal] = useState(false)
@@ -151,7 +152,7 @@ function SuperAdminPage() {
                     const planCfg = PLAN_CONFIG[plan as SubscriptionPlan]
                     const statusCfg = STATUS_CONFIG[status as SubscriptionStatus]
                     const endDate = sub?.current_period_end || sub?.trial_ends_at
-                    const isExpiringSoon = endDate && new Date(endDate) < new Date(Date.now() + 7 * 86400000)
+                    const isExpiringSoon = endDate && new Date(endDate).getTime() < nowMs + 7 * 86400000
                     return (
                       <tr key={org.id} style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', transition: 'background 0.1s' }}
                         onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg3)')}

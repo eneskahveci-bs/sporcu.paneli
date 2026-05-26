@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { formatDate, formatCurrency, calculateAge, getInitials } from '@/lib/utils/formatters'
+import { formatDate, formatCurrency, calculateAge } from '@/lib/utils/formatters'
 import { ArrowLeft, Phone, Mail, Loader2, FileText, Upload, Trash2, ExternalLink, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -41,6 +41,7 @@ export default function AthleteDetailPage() {
   const id = params?.id as string
   const supabase = createClient()
 
+  const [nowMs] = useState(() => Date.now())
   const [loading, setLoading] = useState(true)
   const [athlete, setAthlete] = useState<AthleteWithJoins | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
@@ -302,8 +303,9 @@ export default function AthleteDetailPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {docs.map(doc => {
-              const isExpiringSoon = doc.expires_at && new Date(doc.expires_at) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-              const isExpired = doc.expires_at && new Date(doc.expires_at) < new Date()
+              const expiry = doc.expires_at ? new Date(doc.expires_at).getTime() : 0
+              const isExpiringSoon = !!doc.expires_at && expiry < nowMs + 30 * 24 * 60 * 60 * 1000
+              const isExpired = !!doc.expires_at && expiry < nowMs
               return (
                 <div key={doc.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', borderRadius: '8px', background: 'var(--bg3)', border: `1px solid ${isExpired ? 'var(--red)' : isExpiringSoon ? 'var(--yellow)' : 'var(--border)'}` }}>
                   <FileText size={16} style={{ color: 'var(--text3)', flexShrink: 0 }} />

@@ -208,7 +208,7 @@ export default function KullanimKosullariPage() {
           <li>Bu Kullanım Koşulları <strong>Türkiye Cumhuriyeti hukukuna</strong> tabidir.</li>
           <li>Taraflar arasında doğabilecek uyuşmazlıklarda öncelikle uzlaşma yoluna gidilmesi kararlaştırılmıştır.</li>
           <li>Uzlaşma sağlanamadığı takdirde <strong>İstanbul (Merkez) Mahkemeleri ve İcra Daireleri</strong> yetkilidir.</li>
-          <li>Tüketiciler, ayrıca Türkiye'deki Tüketici Hakem Heyetleri&apos;ne başvurabilir.</li>
+          <li>Tüketiciler, ayrıca Türkiye&apos;deki Tüketici Hakem Heyetleri&apos;ne başvurabilir.</li>
         </ul>
 
         <h2>15. İletişim</h2>

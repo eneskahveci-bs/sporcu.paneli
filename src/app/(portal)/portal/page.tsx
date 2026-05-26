@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ThemeProvider, useTheme } from '@/providers/ThemeProvider'
 import { formatCurrency, formatDate, calculateAge, getInitials } from '@/lib/utils/formatters'
@@ -7,7 +7,7 @@ import {
   LogOut, Sun, Moon, User, CreditCard, ClipboardCheck, MessageSquare,
   CheckCircle, X, Minus, Clock, Loader2, Bell, Upload, Paperclip,
   Eye, EyeOff, KeyRound, Home, Calendar, Send, ChevronLeft, ChevronRight,
-  TrendingUp, AlertCircle, BookOpen,
+  TrendingUp, AlertCircle, BookOpen, ShoppingBag,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { validatePassword } from '@/lib/password-validator'
@@ -73,6 +73,7 @@ function PortalPage() {
   const [athlete, setAthlete] = useState<Record<string, unknown> | null>(null)
   const [classInfo, setClassInfo] = useState<ClassInfo | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
+  const [orders, setOrders] = useState<{ id: string; total_amount: number; status: string; created_at: string; items: { product_name: string; quantity: number; unit_price: number }[] }[]>([])
   const [attendance, setAttendance] = useState<Attendance[]>([])
   const [receivedMsgs, setReceivedMsgs] = useState<Msg[]>([])
   const [sentMsgs, setSentMsgs] = useState<Msg[]>([])
@@ -102,9 +103,10 @@ function PortalPage() {
     const athleteId = user.user_metadata?.athlete_id
     if (!athleteId) { window.location.href = '/login'; return }
 
-    const [{ data: a }, { data: p }, { data: att }, { data: recv }, { data: sent }] = await Promise.all([
+    const [{ data: a }, { data: p }, { data: ord }, { data: att }, { data: recv }, { data: sent }] = await Promise.all([
       supabase.from('athletes').select('*, sports(name), classes(id,name,schedule_days,schedule_time,schedule_time_end,coach:coaches(id,first_name,last_name,auth_user_id))').eq('id', athleteId).single(),
       supabase.from('payments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
+      supabase.from('orders').select('id, total_amount, status, created_at, items:order_items(product_name, quantity, unit_price)').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
       supabase.from('attendance').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }).limit(90),
       supabase.from('messages').select('*').eq('receiver_id', user.id).order('created_at', { ascending: false }),
       supabase.from('messages').select('*').eq('sender_id', user.id).order('created_at', { ascending: false }).limit(30),
@@ -112,6 +114,7 @@ function PortalPage() {
     setAthlete(a)
     if (a?.classes) setClassInfo(a.classes as ClassInfo)
     setPayments(p || [])
+    setOrders((ord || []) as typeof orders)
     setAttendance(att || [])
     setReceivedMsgs(recv || [])
     setSentMsgs(sent || [])
@@ -385,51 +388,15 @@ function PortalPage() {
           </div>
         )}
 
-        {/* ── Tab 1: Ödemeler ── */}
+        {/* ── Tab 1: Ödemeler & Satışlar ── */}
         {tab === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* Özet */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-              {[
-                { label: 'Toplam Borç', value: formatCurrency(totalDebt), color: totalDebt > 0 ? '#ef4444' : '#10b981' },
-                { label: 'Gecikmiş', value: overdueCount + ' ödeme', color: '#f59e0b' },
-                { label: 'Ödenen', value: payments.filter(p => p.status === 'completed').length + ' ödeme', color: '#10b981' },
-              ].map(s => (
-                <div key={s.label} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-            {payments.length === 0 ? (
-              <div className="empty-state card"><div className="empty-state-icon">💳</div><div className="empty-state-title">Ödeme kaydı yok</div></div>
-            ) : payments.map(p => (
-              <div key={p.id} className="card" style={{ borderLeft: `4px solid ${p.status === 'completed' ? '#10b981' : p.status === 'overdue' ? '#ef4444' : '#f59e0b'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{p.description || p.category || 'Aidat'}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Son tarih: {formatDate(p.due_date)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 700, fontSize: 16 }}>{formatCurrency(p.amount)}</div>
-                    <span className={`badge ${PAY_BADGE[p.status]}`} style={{ fontSize: 11 }}>{PAY_LABEL[p.status]}</span>
-                  </div>
-                </div>
-                {(p.status === 'pending' || p.status === 'overdue') && p.notification_status !== 'pending_approval' && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                    <button className="btn bp btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setNotifyModalPayment(p); setSlipFile(null) }}>
-                      <Bell size={12} /> Ödedim — Bildirim Gönder
-                    </button>
-                  </div>
-                )}
-                {p.notification_status === 'pending_approval' && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Clock size={12} /> Bildiriminiz onay bekliyor
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+          <PortalPaymentsTab
+            payments={payments}
+            orders={orders}
+            totalDebt={totalDebt}
+            overdueCount={overdueCount}
+            onNotify={(p) => { setNotifyModalPayment(p); setSlipFile(null) }}
+          />
         )}
 
         {/* ── Tab 2: Devam ── */}
@@ -660,4 +627,225 @@ const eyeBtn: React.CSSProperties = { position: 'absolute', right: 10, top: '50%
 
 export default function Page() {
   return <ThemeProvider><PortalPage /></ThemeProvider>
+}
+
+// ════════════════════════════════════════════════════
+// PORTAL ÖDEMELER & MAĞAZA TAB — Akordiyon ay-bazlı
+// ════════════════════════════════════════════════════
+type OrderPortal = { id: string; total_amount: number; status: string; created_at: string; items: { product_name: string; quantity: number; unit_price: number }[] }
+
+function PortalPaymentsTab({
+  payments, orders, totalDebt, overdueCount, onNotify,
+}: {
+  payments: Payment[]
+  orders: OrderPortal[]
+  totalDebt: number
+  overdueCount: number
+  onNotify: (p: Payment) => void
+}) {
+  const PAY_BADGE: Record<string, string> = { completed: 'badge-green', pending: 'badge-yellow', overdue: 'badge-red', cancelled: 'badge-gray' }
+  const PAY_LABEL: Record<string, string> = { completed: 'Ödendi', pending: 'Bekliyor', overdue: 'Gecikmiş', cancelled: 'İptal' }
+  const ORDER_LABEL: Record<string, string> = {
+    pending: 'Bekliyor', paid: 'Ödendi', preparing: 'Hazırlanıyor',
+    shipped: 'Kargoda', delivered: 'Teslim', cancelled: 'İptal',
+  }
+  const MONTHS = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+
+  // İki listeyi birleştirip ay bazlı grupla
+  type Item =
+    | { kind: 'payment'; id: string; date: string; amount: number; status: string; payment: Payment }
+    | { kind: 'order'; id: string; date: string; amount: number; status: string; order: OrderPortal }
+
+  const items: Item[] = useMemo(() => {
+    const merged: Item[] = []
+    payments.forEach(p => merged.push({
+      kind: 'payment', id: p.id, date: p.due_date || p.created_at,
+      amount: p.amount, status: p.status, payment: p,
+    }))
+    orders.forEach(o => merged.push({
+      kind: 'order', id: o.id, date: o.created_at,
+      amount: o.total_amount, status: o.status, order: o,
+    }))
+    return merged.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }, [payments, orders])
+
+  // Yıl-ay key gruplama
+  const grouped = useMemo(() => {
+    const map = new Map<string, Item[]>()
+    items.forEach(it => {
+      const d = new Date(it.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(it)
+    })
+    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]))
+  }, [items])
+
+  const [openKeys, setOpenKeys] = useState<Set<string>>(() => new Set(grouped[0] ? [grouped[0][0]] : []))
+
+  useEffect(() => {
+    // İlk yüklemede en güncel ayı aç
+    if (grouped.length > 0 && openKeys.size === 0) {
+      setOpenKeys(new Set([grouped[0][0]]))
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [grouped.length])
+
+  const toggle = (k: string) => setOpenKeys(s => {
+    const next = new Set(s)
+    if (next.has(k)) next.delete(k); else next.add(k)
+    return next
+  })
+
+  const totalSpent = payments.filter(p => p.status === 'completed').reduce((s, p) => s + p.amount, 0)
+    + orders.reduce((s, o) => s + o.total_amount, 0)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Özet */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        {[
+          { label: 'Toplam Borç', value: formatCurrency(totalDebt), color: totalDebt > 0 ? '#ef4444' : '#10b981' },
+          { label: 'Gecikmiş', value: overdueCount + ' ödeme', color: '#f59e0b' },
+          { label: 'Toplam Harcama', value: formatCurrency(totalSpent), color: '#3b82f6' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {grouped.length === 0 ? (
+        <div className="empty-state card"><div className="empty-state-icon">💳</div><div className="empty-state-title">Kayıt yok</div><div className="empty-state-text">Henüz ödeme veya satış yok.</div></div>
+      ) : (
+        grouped.map(([key, monthItems]) => {
+          const [y, m] = key.split('-')
+          const isOpen = openKeys.has(key)
+          const monthTotal = monthItems.reduce((s, it) => s + it.amount, 0)
+          const debtCount = monthItems.filter(it => it.kind === 'payment' && (it.status === 'pending' || it.status === 'overdue')).length
+          return (
+            <div key={key} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <button
+                onClick={() => toggle(key)}
+                aria-expanded={isOpen}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                  padding: '14px 16px', background: 'transparent', border: 'none',
+                  cursor: 'pointer', textAlign: 'left', color: 'var(--text)',
+                }}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: 'var(--bg3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  fontSize: 11, fontWeight: 700, color: 'var(--text2)', lineHeight: 1.1, textAlign: 'center',
+                }}>
+                  <div>{MONTHS[parseInt(m) - 1].slice(0, 3)}<br /><span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>{y}</span></div>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{MONTHS[parseInt(m) - 1]} {y}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                    {monthItems.length} işlem
+                    {debtCount > 0 && <span style={{ marginLeft: 6, color: '#f59e0b' }}>· {debtCount} bekleyen</span>}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>{formatCurrency(monthTotal)}</div>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ color: 'var(--text3)', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {isOpen && (
+                <div style={{ borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+                  {monthItems.map(it => {
+                    if (it.kind === 'payment') {
+                      const p = it.payment
+                      return (
+                        <div key={`p-${p.id}`} style={{
+                          padding: '12px 16px',
+                          borderBottom: '1px solid var(--border)',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          borderLeft: `3px solid ${p.status === 'completed' ? '#10b981' : p.status === 'overdue' ? '#ef4444' : '#f59e0b'}`,
+                        }}>
+                          <div style={{
+                            width: 32, height: 32, borderRadius: 8,
+                            background: 'rgba(45,92,179,0.12)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                          }}>
+                            <CreditCard size={14} color="var(--blue2)" />
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{p.description || p.category || 'Aidat'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                              {p.due_date ? `Son: ${formatDate(p.due_date)}` : formatDate(p.created_at)}
+                              <span style={{ marginLeft: 6 }}>· {p.category || 'Aidat'}</span>
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontWeight: 700, fontSize: 14 }}>{formatCurrency(p.amount)}</div>
+                            <span className={`badge ${PAY_BADGE[p.status]}`} style={{ fontSize: 10 }}>{PAY_LABEL[p.status]}</span>
+                          </div>
+                        </div>
+                      )
+                    }
+                    const o = it.order
+                    const itemList = o.items?.map(i => `${i.quantity}× ${i.product_name}`).join(', ') || 'Sipariş'
+                    return (
+                      <div key={`o-${o.id}`} style={{
+                        padding: '12px 16px',
+                        borderBottom: '1px solid var(--border)',
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        borderLeft: '3px solid #8b5cf6',
+                      }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          background: 'rgba(139,92,246,0.14)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                        }}>
+                          <ShoppingBag size={14} color="#8b5cf6" />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>Mağaza Sipariş</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {itemList}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 700, fontSize: 14 }}>{formatCurrency(o.total_amount)}</div>
+                          <span className={`badge ${o.status === 'paid' || o.status === 'delivered' ? 'badge-green' : o.status === 'cancelled' ? 'badge-red' : 'badge-yellow'}`} style={{ fontSize: 10 }}>
+                            {ORDER_LABEL[o.status] || o.status}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+
+                  {/* Bekleyen ödemeler için "Ödedim" butonları */}
+                  {monthItems.filter(it => it.kind === 'payment' && (it.status === 'pending' || it.status === 'overdue') && it.payment.notification_status !== 'pending_approval').map(it => {
+                    const p = (it as Extract<Item, { kind: 'payment' }>).payment
+                    return (
+                      <div key={`btn-${p.id}`} style={{ padding: '8px 16px', background: 'var(--bg3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, borderBottom: '1px solid var(--border)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text2)' }}>{p.description || 'Aidat'} · {formatCurrency(p.amount)}</span>
+                        <button className="btn bp btn-sm" onClick={() => onNotify(p)}>
+                          <Bell size={11} /> Ödedim
+                        </button>
+                      </div>
+                    )
+                  })}
+
+                  {monthItems.some(it => it.kind === 'payment' && it.payment.notification_status === 'pending_approval') && (
+                    <div style={{ padding: '10px 16px', fontSize: 12, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(245,158,11,0.06)' }}>
+                      <Clock size={12} /> Bu aydaki bazı bildirimler onay bekliyor
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
 }

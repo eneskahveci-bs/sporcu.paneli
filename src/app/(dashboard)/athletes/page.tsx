@@ -1,12 +1,13 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
-import { Plus, Search, Download, Eye, Edit, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Search, Download, Eye, Edit, Trash2, Loader2, Key, KeyRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatCurrency, calculateAge } from '@/lib/utils/formatters'
 import { Avatar } from '@/components/ui/Avatar'
 import { validateTC } from '@/lib/utils/tc-validation'
 import { toast } from 'sonner'
+import { confirmDialog } from '@/components/ui/ConfirmDialog'
 import type { Athlete, Sport, Class } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = { active: 'Aktif', inactive: 'Pasif', pending: 'Beklemede' }
@@ -64,6 +65,31 @@ export default function AthletesPage() {
     toast.success('Sporcu silindi')
     setDeleteId(null)
     fetchData()
+  }
+
+  const provisionAthlete = async (athleteId: string, tc: string) => {
+    if (!validateTC(tc)) { toast.error('Bu sporcunun TC kimlik numarası geçersiz. Giriş hesabı oluşturmak için önce geçerli bir TC girin.'); return }
+    const res = await window.fetch('/api/provision-athlete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ athlete_id: athleteId, tc }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error('Giriş oluşturulamadı: ' + (data.error || '')); return }
+    toast.success(`Giriş oluşturuldu — TC: ${tc} / İlk şifre: ${tc} (ilk girişte değiştirilecek)`)
+    fetchData()
+  }
+
+  const resetAthletePassword = async (athleteId: string, name: string) => {
+    if (!await confirmDialog({ title: 'Şifre sıfırlansın mı?', message: `${name} şifresi TC numarasına sıfırlanacak. Sporcu bir sonraki girişte yeni şifre belirleyecek.`, variant: 'warning', confirmText: 'Sıfırla' })) return
+    const res = await window.fetch('/api/reset-user-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'athlete', id: athleteId }),
+    })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error || 'Şifre sıfırlanamadı'); return }
+    toast.success(data.message || 'Şifre başarıyla sıfırlandı')
   }
 
   const handleExport = () => {
@@ -147,7 +173,12 @@ export default function AthletesPage() {
                       <Avatar name={`${a.first_name} ${a.last_name}`} size={32} />
                       <div>
                         <div style={{ fontWeight: 600 }}>{a.first_name} {a.last_name}</div>
-                        <div className="ts text-faint">{a.email || '-'}</div>
+                        <div className="ts text-faint" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {a.email || '-'}
+                          <span className={`badge badge-sm ${a.auth_user_id ? 'badge-blue' : 'badge-gray'}`} style={{ fontSize: '10px' }}>
+                            {a.auth_user_id ? 'Giriş Var' : 'Giriş Yok'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -161,6 +192,11 @@ export default function AthletesPage() {
                   <td>
                     <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
                       <a href={`/athletes/${a.id}`} className="btn bs btn-xs" title="Detay"><Eye size={12} /></a>
+                      {!a.auth_user_id ? (
+                        <button className="btn bp btn-xs" onClick={() => provisionAthlete(a.id, a.tc)} title="Portal Girişi Oluştur"><Key size={12} /></button>
+                      ) : (
+                        <button className="btn bs btn-xs" onClick={() => resetAthletePassword(a.id, `${a.first_name} ${a.last_name}`)} title="Şifre Sıfırla"><KeyRound size={12} /></button>
+                      )}
                       <button className="btn bs btn-xs" onClick={() => { setEditingAthlete(a); setShowModal(true) }} title="Düzenle"><Edit size={12} /></button>
                       <button className="btn bd btn-xs" onClick={() => setDeleteId(a.id)} title="Sil"><Trash2 size={12} /></button>
                     </div>
@@ -289,15 +325,26 @@ function AthleteModal({ athlete, sports, classes, onClose, onSave }: {
     }
 
     let error
+    let provisioned = false
     if (athlete) {
       ({ error } = await supabase.from('athletes').update(payload).eq('id', athlete.id))
     } else {
-      ({ error } = await supabase.from('athletes').insert(payload))
+      const { data: newAthlete, error: insertError } = await supabase.from('athletes').insert(payload).select('id').single()
+      error = insertError
+      // Yeni sporcu eklenince portal giriş hesabını otomatik oluştur (geçerli TC ise)
+      if (!insertError && newAthlete && validateTC(form.tc)) {
+        const res = await window.fetch('/api/provision-athlete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ athlete_id: newAthlete.id, tc: form.tc }),
+        })
+        provisioned = res.ok
+      }
     }
 
     setSaving(false)
     if (error) { toast.error('Hata: ' + error.message); return }
-    toast.success(athlete ? 'Sporcu güncellendi' : 'Sporcu eklendi')
+    toast.success(athlete ? 'Sporcu güncellendi' : (provisioned ? 'Sporcu eklendi ve portal girişi oluşturuldu (şifre: TC no)' : 'Sporcu eklendi'))
     onSave()
   }
 

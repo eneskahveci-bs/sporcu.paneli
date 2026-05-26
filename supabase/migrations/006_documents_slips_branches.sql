@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS athlete_documents (
   created_at timestamptz DEFAULT now()
 );
 ALTER TABLE athlete_documents ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Org members can manage athlete_documents" ON athlete_documents;
 CREATE POLICY "Org members can manage athlete_documents"
   ON athlete_documents FOR ALL
   USING (organization_id = (auth.jwt() -> 'user_metadata' ->> 'organization_id')::UUID);
@@ -24,11 +25,14 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS slip_url text;
 INSERT INTO storage.buckets (id, name, public) VALUES ('documents', 'documents', false)
   ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY IF NOT EXISTS "documents_insert"
+DROP POLICY IF EXISTS "documents_insert" ON storage.objects;
+CREATE POLICY "documents_insert"
   ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'documents');
-CREATE POLICY IF NOT EXISTS "documents_select"
+DROP POLICY IF EXISTS "documents_select" ON storage.objects;
+CREATE POLICY "documents_select"
   ON storage.objects FOR SELECT USING (bucket_id = 'documents');
-CREATE POLICY IF NOT EXISTS "documents_delete"
+DROP POLICY IF EXISTS "documents_delete" ON storage.objects;
+CREATE POLICY "documents_delete"
   ON storage.objects FOR DELETE USING (bucket_id = 'documents');
 
 -- ── Branches: add bank/address fields if missing ───────────────────────────
