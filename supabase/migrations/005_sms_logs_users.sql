@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS sms_logs (
 );
 
 ALTER TABLE sms_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "sms_logs_org" ON sms_logs
+DROP POLICY IF EXISTS "sms_logs_org" ON sms_logs;
+CREATE POLICY "sms_logs_org" ON sms_logs
   FOR ALL USING (organization_id = (SELECT (auth.jwt()->'user_metadata'->>'organization_id')::uuid));
 
 -- Kullanıcılar tablosu (yönetici / antrenör kayıtları)
@@ -32,11 +33,14 @@ CREATE TABLE IF NOT EXISTS users (
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 -- Kendi kaydını okuyabilir
-CREATE POLICY IF NOT EXISTS "users_self_read" ON users
+DROP POLICY IF EXISTS "users_self_read" ON users;
+CREATE POLICY "users_self_read" ON users
   FOR SELECT USING (id = auth.uid());
 -- Aynı organizasyondaki üyeler okuyabilir
-CREATE POLICY IF NOT EXISTS "users_org_read" ON users
+DROP POLICY IF EXISTS "users_org_read" ON users;
+CREATE POLICY "users_org_read" ON users
   FOR SELECT USING (organization_id = (SELECT (auth.jwt()->'user_metadata'->>'organization_id')::uuid));
 -- Yalnızca insert/update için org kontrolü
-CREATE POLICY IF NOT EXISTS "users_org_write" ON users
+DROP POLICY IF EXISTS "users_org_write" ON users;
+CREATE POLICY "users_org_write" ON users
   FOR ALL USING (organization_id = (SELECT (auth.jwt()->'user_metadata'->>'organization_id')::uuid));

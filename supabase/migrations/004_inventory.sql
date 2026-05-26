@@ -34,8 +34,10 @@ ALTER TABLE inventory_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements ENABLE ROW LEVEL SECURITY;
 
 -- RLS policies
-CREATE POLICY IF NOT EXISTS "inventory_items_org" ON inventory_items
+DROP POLICY IF EXISTS "inventory_items_org" ON inventory_items;
+CREATE POLICY "inventory_items_org" ON inventory_items
   FOR ALL USING (organization_id = (SELECT (auth.jwt()->'user_metadata'->>'organization_id')::uuid));
 
-CREATE POLICY IF NOT EXISTS "inventory_movements_org" ON inventory_movements
+DROP POLICY IF EXISTS "inventory_movements_org" ON inventory_movements;
+CREATE POLICY "inventory_movements_org" ON inventory_movements
   FOR ALL USING (organization_id = (SELECT (auth.jwt()->'user_metadata'->>'organization_id')::uuid));
