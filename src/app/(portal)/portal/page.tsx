@@ -78,6 +78,7 @@ function PortalPage() {
   const [receivedMsgs, setReceivedMsgs] = useState<Msg[]>([])
   const [sentMsgs, setSentMsgs] = useState<Msg[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [mustSetPassword, setMustSetPassword] = useState(false)
   const [notifyingId, setNotifyingId] = useState<string | null>(null)
   const [notifyModalPayment, setNotifyModalPayment] = useState<Payment | null>(null)
@@ -103,21 +104,39 @@ function PortalPage() {
     const athleteId = user.user_metadata?.athlete_id
     if (!athleteId) { window.location.href = '/login'; return }
 
-    const [{ data: a }, { data: p }, { data: ord }, { data: att }, { data: recv }, { data: sent }] = await Promise.all([
-      supabase.from('athletes').select('*, sports(name), classes(id,name,schedule_days,schedule_time,schedule_time_end,coach:coaches(id,first_name,last_name,auth_user_id))').eq('id', athleteId).single(),
-      supabase.from('payments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
-      supabase.from('orders').select('id, total_amount, status, created_at, items:order_items(product_name, quantity, unit_price)').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
-      supabase.from('attendance').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }).limit(90),
-      supabase.from('messages').select('*').eq('receiver_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('messages').select('*').eq('sender_id', user.id).order('created_at', { ascending: false }).limit(30),
-    ])
+    // Kritik: sporcu profilini önce ve tek başına çek. Başarısızsa anlamlı hata göster.
+    const { data: a, error: aErr } = await supabase
+      .from('athletes')
+      .select('*, sports(name), classes(id,name,schedule_days,schedule_time,schedule_time_end,coach:coaches(id,first_name,last_name,auth_user_id))')
+      .eq('id', athleteId)
+      .single()
+
+    if (aErr || !a) {
+      console.error('Sporcu profili yüklenemedi:', aErr)
+      setLoadError(aErr?.message || 'Profil bulunamadı')
+      setLoading(false)
+      return
+    }
     setAthlete(a)
     if (a?.classes) setClassInfo(a.classes as ClassInfo)
-    setPayments(p || [])
-    setOrders((ord || []) as typeof orders)
-    setAttendance(att || [])
-    setReceivedMsgs(recv || [])
-    setSentMsgs(sent || [])
+
+    // Opsiyonel veriler: biri (örn. orders tablosu yoksa) patlasa bile portal açık kalsın
+    try {
+      const [{ data: p }, { data: ord }, { data: att }, { data: recv }, { data: sent }] = await Promise.all([
+        supabase.from('payments').select('*').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
+        supabase.from('orders').select('id, total_amount, status, created_at, items:order_items(product_name, quantity, unit_price)').eq('athlete_id', athleteId).order('created_at', { ascending: false }),
+        supabase.from('attendance').select('*').eq('athlete_id', athleteId).order('date', { ascending: false }).limit(90),
+        supabase.from('messages').select('*').eq('receiver_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('messages').select('*').eq('sender_id', user.id).order('created_at', { ascending: false }).limit(30),
+      ])
+      setPayments(p || [])
+      setOrders((ord || []) as typeof orders)
+      setAttendance(att || [])
+      setReceivedMsgs(recv || [])
+      setSentMsgs(sent || [])
+    } catch (e) {
+      console.error('Bazı portal verileri yüklenemedi (devam ediliyor):', e)
+    }
     setLoading(false)
   }, [supabase])
 
@@ -200,7 +219,24 @@ function PortalPage() {
   )
 
   if (mustSetPassword) return <SetPasswordScreen onDone={() => { setMustSetPassword(false); window.location.reload() }} />
-  if (!athlete) return null
+
+  if (!athlete) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 24 }}>
+      <div style={{ maxWidth: 420, textAlign: 'center' }}>
+        <div style={{ fontSize: 44, marginBottom: 12 }}>⚠️</div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Profiliniz yüklenemedi</h2>
+        <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6, marginBottom: 20 }}>
+          Sporcu profiliniz bulunamadı. Hesabınız akademiye bağlı olmayabilir ya da
+          oturum bilgileriniz güncel değil. Lütfen tekrar giriş yapmayı deneyin.
+        </p>
+        {loadError && <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 16, fontFamily: 'monospace' }}>{loadError}</p>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          <button className="btn bs" onClick={() => window.location.reload()}>Tekrar Dene</button>
+          <button className="btn bp" onClick={signOut}>Çıkış Yap</button>
+        </div>
+      </div>
+    </div>
+  )
 
   const firstName = athlete.first_name as string
   const lastName = athlete.last_name as string
